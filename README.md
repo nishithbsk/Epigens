@@ -5,7 +5,7 @@ CS 273a: Predicting Tissue Specific Enhancer Activity from Epigenetic Marks and 
 
 ## Authors
 
-Nishith K., Kristin M., Jim Z. (ataki[ataki](https://github.com/ataki))
+Nishith K., Kristin M., Jim Z. ([ataki](https://github.com/ataki))
 
 ## Summary
 
