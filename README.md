@@ -29,6 +29,7 @@ For the milestone, we have the current checklist:
 - [ ] Generate point scatter plot using PCA of top features (like Fig 1 of Lee
   et al)
 - [ ] Generate precision/recall/false-positive curves (like Fig 2)
+- [ ] K-fold cross validation using sklearn
 
 ## Final
 
@@ -37,7 +38,3 @@ which would help us. We will also apply more evaluation techniques from
 standard machine learning, and take a look at alternative classifiers, as
 well as attempt to make stonger predicitions (multiclass instead of binary).
 
-- [ ] K-fold cross validation using sklearn
-- [ ] K-fold cross validation using sklearn
-
-Other tasks tbd
