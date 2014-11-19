@@ -108,6 +108,11 @@ def load_named_seq(path):
     return (_named_sequences, _named_descriptions)
 
 
+def normalize(v):
+    """ Returns normalized v with length 1 """
+    return v / np.linalg.norm(v)
+
+
 def get_kmer_counts(seq, ref):
     """ Given example sequence and a reference table mapping
     kmers to indices, returns a numpy array representing one row
@@ -135,44 +140,63 @@ def get_kmer_counts(seq, ref):
         if kmer != neg_strand(kmer):
             idx = ref[kmer]
             row[idx] += 1
-    return row
+    return normalize(row)
 
 
-def make_dict_from_list(l):
+def make_index_dict_from_list(l):
+    """ Given list, creates dictionary where keys
+    are contents of array and value is index of
+    original array """
     return dict([(x, i) for i, x in enumerate(l)])
 
 
-def get_XY(examples, labels_mapping):
+def get_kmers_index_lookup(examples):
+    """ Given list of examples, builds the index
+    mapping of kmers."""
     all_seqs = [x[1] for x in examples]
     all_kmers = list(reduce(set_kmers_reducer, all_seqs, set()))
-    kmer_index_lookup = make_dict_from_list(all_kmers)
-    X = np.vstack([get_kmer_counts(x, kmer_index_lookup) for x in all_seqs])
+    return make_index_dict_from_list(all_kmers)
+
+
+def get_XY(examples, labels_mapping, kmer_index):
+    all_seqs = [x[1] for x in examples]
+    X = np.vstack([get_kmer_counts(x, kmer_index) for x in all_seqs])
     y = np.array([x[1] for x in labels_mapping])
     print "train. matrix dims (X): ", X.shape
     print "num labels (y): ", len(y)
     print "------------------------------------"
     return (X, y)
 
-
 # Load / train
-(examples, labels_mapping) = load_named_seq(FASTA_HUMAN_SRC)
-cutoff = len(examples) * 7 / 10
+
+examples, labels_mapping = load_named_seq(FASTA_HUMAN_SRC)
+kmers_index = get_kmers_index_lookup(examples)
+cutoff = len(examples) * 9 / 10
+
+# 70% train
 
 train_examples = examples[0:cutoff]
 train_labels = labels_mapping[0:cutoff]
-X, y = get_XY(train_examples, train_labels)
+X, y = get_XY(train_examples, train_labels, kmers_index)
 
 clf = svm.SVC()
 clf.fit(X, y)
 
+# 30% test
+
 test_examples = examples[cutoff:]
 test_labels = labels_mapping[cutoff:]
-testX, testy = get_XY(test_examples, test_labels)
+X_t, y_t = get_XY(test_examples, test_labels, kmers_index)
 
-results = clf.predict(testX)
-num_same = len([x for i, x in enumerate(results) if x == testy[i]])
-accuracy = 1.0 * num_same / len(results)
-print "70/30 CV gives accuracy of %f" % accuracy
+predicted = clf.predict(X_t)
+mistakes = np.where(y_t != predicted)[0]
+accuracy = (1.0 * len(predicted) - len(mistakes)) / len(predicted)
+
+print "70/30 CV gives accuracy of %f with k=%d" % (accuracy, GLOBAL_K)
+print "--------------------------------------"
+print "Mistakes: "
+for mistake in mistakes:
+    print mistake, "should be ", y_t[mistake]
 
 # TODO Plot data, draw, svm so we have a rough approximation
 

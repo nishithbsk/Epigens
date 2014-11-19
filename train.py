@@ -19,7 +19,7 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-GLOBAL_K = 6
+GLOBAL_K = 7
 
 
 # Parse
@@ -138,28 +138,47 @@ def get_kmer_counts(seq, ref):
     return row
 
 
-def make_dict_from_list(l):
+def make_index_dict_from_list(l):
+    """ Given list, creates dictionary where keys
+    are contents of array and value is index of
+    original array """
     return dict([(x, i) for i, x in enumerate(l)])
 
 
+def get_kmers_index_lookup(examples):
+    """ Given list of examples, builds the index
+    mapping of kmers """
+    all_seqs = [x[1] for x in examples]
+    all_kmers = list(reduce(set_kmers_reducer, all_seqs, set()))
+    return make_index_dict_from_list(all_kmers)
+
+
+def get_XY(examples, labels_mapping, kmer_index):
+    all_seqs = [x[1] for x in examples]
+    X = np.vstack([get_kmer_counts(x, kmer_index) for x in all_seqs])
+    y = np.array([x[1] for x in labels_mapping])
+    print "train. matrix dims (X): ", X.shape
+    print "num labels (y): ", len(y)
+    print "------------------------------------"
+    return (X, y)
+
+
 # Load / train
-(examples, labels_mapping) = load_named_seq(FASTA_HUMAN_SRC)
-all_seqs = [x[1] for x in examples]
-all_kmers = list(reduce(set_kmers_reducer, all_seqs, set()))
 
-kmer_index_lookup = make_dict_from_list(all_kmers)
+examples, labels_mapping = load_named_seq(FASTA_HUMAN_SRC)
+kmers_index = get_kmers_index_lookup(examples)
+X, y = get_XY(examples, train_labels, kmers_index)
 
-X = np.vstack([get_kmer_counts(x, kmer_index_lookup) for x in all_seqs])
-y = np.array([x[1] for x in labels_mapping])
+test_examples = examples[cutoff:]
+test_labels = labels_mapping[cutoff:]
+testX, testy = get_XY(test_examples, test_labels, kmers_index)
+
+results = clf.predict(testX)
+num_same = len([x for i, x in enumerate(results) if x == testy[i]])
+accuracy = 1.0 * num_same / len(results)
+
 
 # TODO Plot data, draw, svm so we have a rough approximation
-
-print "train. matrix dims (X): ", X.shape
-print "num labels (y): ", len(y)
-print "------------------------------------"
-
-clf = svm.SVC()
-clf.fit(X, y)
 
 # Serialize output to string
 
