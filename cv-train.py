@@ -287,8 +287,8 @@ X_train, X_test, y_train, y_test = cross_validation.train_test_split(
     X, y, test_size=0.1, random_state=0)
 
 clf = svm.SVC(kernel='linear', C=1)
-clf.fit(X, y)
-score = clf.score(X, y)
+clf.fit(X_train, y_train)
+score = clf.score(X_test, y_test)
 
 
 # == K-fold cross validation ==
@@ -296,7 +296,6 @@ score = clf.score(X, y)
 # print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
 # === Plot ===
-# TODO
 
 # === Serialize ===
 # s = pickle.dumps(clf)
