@@ -58,7 +58,13 @@ def set_kmers_reducer(accumSet, seq):
     """ Reducer form of set_kmers """
     return accumSet.union(set_kmers(seq))
 
-
+def locfd(description):
+    """ converts descriptions to locations. Input
+    is a fasta descr. delimited by "|". Whether
+    the region is enhanced is denoted by the ?th
+    entry in the array """
+    return description.split("|")[4:]
+    
 def lts(label):
     """ converts label to sign """
     return 1 if label == "positive" else -1
@@ -97,15 +103,18 @@ def load_named_seq(path):
     human_fasta_seq = SeqIO.parse(FH_f, 'fasta')
     _named_sequences = []
     _named_descriptions = []
+    _named_locations = []
 
     # TODO Should we be using "lower" here? What does it mean
     # for a FASTA letter to be capitalized?
     for x in human_fasta_seq:
         _named_sequences.append((x.id, str(x.seq).lower()))
         _named_descriptions.append((x.id, lfd(x.description)))
+        _named_locations.append((x.id, locfd(x.description)))
+
 
     print "--> num sequences read from %s: %d" % (path, len(_named_sequences))
-    return (_named_sequences, _named_descriptions)
+    return (_named_sequences, _named_descriptions, _named_locations)
 
 
 def normalize(v):
@@ -169,7 +178,9 @@ def get_XY(examples, labels_mapping, kmer_index):
 
 # Load / train
 
-examples, labels_mapping = load_named_seq(FASTA_HUMAN_SRC)
+examples, labels_mapping, locations = load_named_seq(FASTA_HUMAN_SRC)
+print locations
+    
 kmers_index = get_kmers_index_lookup(examples)
 cutoff = len(examples) * 9 / 10
 
@@ -197,6 +208,31 @@ print "--------------------------------------"
 print "Mistakes: "
 for mistake in mistakes:
     print mistake, "should be ", y_t[mistake]
+
+# <NISH>
+""" forebrainVector, hindbrainVector, limbVector are vectors that contain
+indices into the y_t vector. """
+locations_to_y_tIndex = {'forebrain' : [], 'hindbrain' : [], 'limb' : [], 'rest' : []}
+
+index = 0
+for (x, y) in locations[cutoff:]:
+    if len(y) > 0:
+        for location in y:
+            if "forebrain" in location:
+                locations_to_y_tIndex['forebrain'].append(index)
+            if "hindbrain" in location:
+                locations_to_y_tIndex['hindbrain'].append(index)
+            if "limb" in location:
+                locations_to_y_tIndex['limb'].append(index)
+            if "forebrain" not in location and "hindbrain" not in location and "limb" not in location:
+                if index not in locations_to_y_tIndex['rest']:
+                    locations_to_y_tIndex['rest'].append(index)
+    index += 1
+
+
+
+
+# </NISH>
 
 # TODO Plot data, draw, svm so we have a rough approximation
 
