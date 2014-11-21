@@ -210,7 +210,7 @@ for mistake in mistakes:
     print mistake, "should be ", y_t[mistake]
 
 # <NISH>
-""" forebrainVector, hindbrainVector, limbVector are vectors that contain
+""" locations_to_y_tIndex is a dictionary that maps location (eg. hindbrain) to 
 indices into the y_t vector. """
 locations_to_y_tIndex = {'forebrain' : [], 'hindbrain' : [], 'limb' : [], 'rest' : []}
 
