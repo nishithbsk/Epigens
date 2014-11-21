@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import itertools
 import pdb
+import re
 
 from Bio import SeqIO
 from sklearn import svm
@@ -22,9 +23,9 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-POS_DATASET = "papers/sequence_files/enh_fb.fa"
+POS_DATASET = "papers/pos.fa"
 
-NEG_DATASET = "papers/sequence_files/random4000.fa"
+NEG_DATASET = "papers/neg.fa"
 
 GLOBAL_K = 6
 
@@ -206,6 +207,20 @@ def get_XY(examples, labels_mapping, kmer_index):
     return (X, y)
 
 
+def get_TAAT_core_col(examples):
+    all_seqs = [x[1] for x in examples]
+    regex = "^([atgc])+(taat)([atcg])+$"
+    expr = lambda x: 1.0 if re.match(regex, x) else 0.0
+    return np.array(map(expr, all_seqs)).reshape(len(all_seqs), 1)
+
+
+def get_Ebox_col(examples):
+    all_seqs = [x[1] for x in examples]
+    regex = "ca[atcg]{2}tg"
+    expr = lambda x: 1.0 if re.search(regex, x) else 0.0
+    return np.array(map(expr, all_seqs)).reshape(len(all_seqs), 1)
+
+
 def get_locations_to_y_tIndex(locations):
     """ locations_to_y_tIndex is a dictionary that maps location
     (eg. hindbrain) to  indices into the y_t vector. """
@@ -241,22 +256,39 @@ kmers_index = get_kmers_index_lookup()
 
 
 # === Train on experimental dataset ===
-pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
-neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
+# pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
+# neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
 
-train_ex = pos_seq + neg_seq
-train_labels = pos_lmap + neg_lmap
-X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
+# train_ex = pos_seq + neg_seq
+# train_labels = pos_lmap + neg_lmap
+# X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
 
-clf = svm.SVC(kernel='rbf', C=1)
-clf.fit(X_train, y_train)
+# # Add e-box and taat core cols
+# X_train = np.hstack((
+#     X_train,
+#     get_Ebox_col(train_ex),
+#     get_TAAT_core_col(train_ex)
+# ))
 
+# clf = svm.SVC(kernel='rbf', C=1)
+# clf.fit(X_train, y_train)
 
 # === Test on our own ===
-test_ex, test_labels, locations = load_named_seq(FASTA_HUMAN_SRC)
-X_test, y_test = get_XY(test_ex, test_labels, kmers_index)
+examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
+X, y = get_XY(test_ex, test_labels, kmers_index)
 
-score = clf.score(X_test, y_test)
+X = np.hstack((
+    X,
+    get_Ebox_col(examples),
+    get_TAAT_core_col(examples)
+))
+
+X_train, X_test, y_train, y_test = cross_validation.train_test_split(
+    X, y, test_size=0.1, random_state=0)
+
+clf = svm.SVC(kernel='linear', C=1)
+clf.fit(X, y)
+score = clf.score(X, y)
 
 
 # == K-fold cross validation ==
