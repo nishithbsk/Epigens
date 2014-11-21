@@ -8,6 +8,7 @@ import numpy as np
 
 from Bio import SeqIO
 from sklearn import svm
+from sklearn import cross_validation
 
 # import pickle
 from sklearn.externals import joblib
@@ -19,7 +20,7 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-GLOBAL_K = 6
+GLOBAL_K = 7
 
 
 # Parse
@@ -173,68 +174,62 @@ def get_XY(examples, labels_mapping, kmer_index):
     y = np.array([x[1] for x in labels_mapping])
     print "train. matrix dims (X): ", X.shape
     print "num labels (y): ", len(y)
+    print "+ ", len([1 for y_i in y if y_i == 1])
+    print "- ", len([1 for y_i in y if y_i == -1])
     print "------------------------------------"
     return (X, y)
 
-# Load / train
+
+def get_locations_to_y_tIndex(locations):
+    """ locations_to_y_tIndex is a dictionary that maps location
+    (eg. hindbrain) to  indices into the y_t vector. """
+
+    locations_to_y_tIndex = {
+        'forebrain': [],
+        'hindbrain': [],
+        'limb': [],
+        'rest': []
+    }
+
+    index = 0
+    for (x, y) in locations[cutoff:]:
+        if len(y) > 0:
+            for location in y:
+                if "forebrain" in location:
+                    locations_to_y_tIndex['forebrain'].append(index)
+                if "hindbrain" in location:
+                    locations_to_y_tIndex['hindbrain'].append(index)
+                if "limb" in location:
+                    locations_to_y_tIndex['limb'].append(index)
+                if "forebrain" not in location and "hindbrain" not in location and "limb" not in location:
+                    if index not in locations_to_y_tIndex['rest']:
+                        locations_to_y_tIndex['rest'].append(index)
+        index += 1
+    return locations_to_y_tIndex
+
+
+# Set up training data and SVM
 
 examples, labels_mapping, locations = load_named_seq(FASTA_HUMAN_SRC)
-print locations
-    
+   
 kmers_index = get_kmers_index_lookup(examples)
-cutoff = len(examples) * 9 / 10
+X, y = get_XY(examples, labels_mapping, kmers_index)
+clf = svm.SVC(kernel='linear', C=1)
 
-# 70% train
+# Manual cross-validation
 
-train_examples = examples[0:cutoff]
-train_labels = labels_mapping[0:cutoff]
-X, y = get_XY(train_examples, train_labels, kmers_index)
+# X_train, X_test, y_train, y_test = cross_validation.train_test_split(
+#     X, y, test_size=0.1, random_state=0
+# )
 
-clf = svm.SVC()
-clf.fit(X, y)
+# clf.fit(X_train, y_train)
+# clf.score(X_test, y_test)
+scores = cross_validation.cross_val_score(clf, X, y, cv=5)
+print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
-# 30% test
-
-test_examples = examples[cutoff:]
-test_labels = labels_mapping[cutoff:]
-X_t, y_t = get_XY(test_examples, test_labels, kmers_index)
-
-predicted = clf.predict(X_t)
-mistakes = np.where(y_t != predicted)[0]
-accuracy = (1.0 * len(predicted) - len(mistakes)) / len(predicted)
-
-print "70/30 CV gives accuracy of %f with k=%d" % (accuracy, GLOBAL_K)
-print "--------------------------------------"
-print "Mistakes: "
-for mistake in mistakes:
-    print mistake, "should be ", y_t[mistake]
-
-# <NISH>
-""" locations_to_y_tIndex is a dictionary that maps location (eg. hindbrain) to 
-indices into the y_t vector. """
-locations_to_y_tIndex = {'forebrain' : [], 'hindbrain' : [], 'limb' : [], 'rest' : []}
-
-index = 0
-for (x, y) in locations[cutoff:]:
-    if len(y) > 0:
-        for location in y:
-            if "forebrain" in location:
-                locations_to_y_tIndex['forebrain'].append(index)
-            if "hindbrain" in location:
-                locations_to_y_tIndex['hindbrain'].append(index)
-            if "limb" in location:
-                locations_to_y_tIndex['limb'].append(index)
-            if "forebrain" not in location and "hindbrain" not in location and "limb" not in location:
-                if index not in locations_to_y_tIndex['rest']:
-                    locations_to_y_tIndex['rest'].append(index)
-    index += 1
-
-
-
-
-# </NISH>
 
 # TODO Plot data, draw, svm so we have a rough approximation
+
 
 # Serialize output to string
 
