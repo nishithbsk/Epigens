@@ -13,7 +13,7 @@ import re
 from Bio import SeqIO
 from sklearn import svm
 from sklearn import cross_validation
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, precision_recall_curve
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 from sklearn.decomposition import PCA
@@ -25,7 +25,7 @@ from matplotlib import pyplot as plt
 
 TRAIN_EXPERIMENTAL = False
 
-SHOULD_SPLIT = False
+SHOULD_SPLIT = True
 
 VISTA_TABLE_SRC = "data/vistaTable20141113.txt"
 
@@ -279,6 +279,7 @@ def plot_2d_results(X, y, preds):
         plt.scatter(X_r[y == i, 0], X_r[y == i, 1], c=c, label=target_name)
     plt.legend()
     plt.title("PCA of 2d data")
+    plt.savefig("figures/data-scatter.png")
 
     # Plot mispredictions
     plt.figure()
@@ -290,7 +291,16 @@ def plot_2d_results(X, y, preds):
         plt.scatter(X_r[diff == i, 0], X_r[diff == i, 1], c=c, label=target_name)
         plt.legend()
         plt.title("PCA of correct/incorrect predictions")
-    plt.show()
+    # plt.show()
+    plt.savefig("figures/residual-scatter.png")
+
+
+def plot_precision_recall(y_test, y_scores):
+    precision, recall, thresholds = precision_recall_curve(y_test, y_scores)
+    plt.figure()
+    plt.plot(recall, precision, 'g-')
+    plt.title("Precision-Recall Curve")
+    plt.savefig("figures/pr-curve.png")
 
 
 def plot_roc(y_test, y_score):
@@ -313,7 +323,8 @@ def plot_roc(y_test, y_score):
     plt.ylabel('True Positive Rate')
     plt.title('ROC, Kmer counts used to predict general enhancer functionality')
     plt.legend(loc="lower right")
-    plt.show()
+    # plt.show()
+    plt.savefig("roc-curve.png")
 
 
 # feature vector index :=> kmer string
@@ -329,11 +340,11 @@ if TRAIN_EXPERIMENTAL:
     X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
 
     # Add e-box and taat core cols
-    X_train = np.hstack((
-        X_train,
-        get_Ebox_col(train_ex),
-        get_TAAT_core_col(train_ex)
-    ))
+    # X_train = np.hstack((
+    #     X_train,
+    #     get_Ebox_col(train_ex),
+    #     get_TAAT_core_col(train_ex)
+    # ))
 
     clf = svm.SVC(kernel='rbf', C=1)
     clf.fit(X_train, y_train)
@@ -355,15 +366,15 @@ else:
             X, y, test_size=0.1, random_state=0)
         clf.fit(X_train, y_train)
         clf.score(X_test, y_test)
+        # transform labels from [-1,1] to [0,1]
+        _y_test = label_binarize(y_test, classes=[-1, 1])
+        y_scores = clf.decision_function(X_test)
+        plot_roc(_y_test, y_scores)
+        plot_precision_recall(_y_test, y_scores)
+        plot_2d_results(X_test, y_test, clf.predict(X_test))
     else:
         scores = cross_validation.cross_val_score(clf, X, y, cv=5)
         print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
-
-    # transform labels from [-1,1] to [0,1]
-    # _y_test = label_binarize(y_test, classes=[-1, 1])
-    # y_score = clf.decision_function(X_test)
-    # plot_roc(_y_test, y_score)
-    # plot_2d_results(X_test, y_test, clf.predict(X_test))
 
 
 # == K-fold cross validation ==
