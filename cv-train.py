@@ -59,13 +59,15 @@ def set_kmers_reducer(accumSet, seq):
     """ Reducer form of set_kmers """
     return accumSet.union(set_kmers(seq))
 
+
 def locfd(description):
     """ converts descriptions to locations. Input
     is a fasta descr. delimited by "|". Whether
     the region is enhanced is denoted by the ?th
     entry in the array """
     return description.split("|")[4:]
-    
+
+
 def lts(label):
     """ converts label to sign """
     return 1 if label == "positive" else -1
@@ -112,7 +114,6 @@ def load_named_seq(path):
         _named_sequences.append((x.id, str(x.seq).lower()))
         _named_descriptions.append((x.id, lfd(x.description)))
         _named_locations.append((x.id, locfd(x.description)))
-
 
     print "--> num sequences read from %s: %d" % (path, len(_named_sequences))
     return (_named_sequences, _named_descriptions, _named_locations)
@@ -201,7 +202,9 @@ def get_locations_to_y_tIndex(locations):
                     locations_to_y_tIndex['hindbrain'].append(index)
                 if "limb" in location:
                     locations_to_y_tIndex['limb'].append(index)
-                if "forebrain" not in location and "hindbrain" not in location and "limb" not in location:
+                if "forebrain" not in location and \
+                        "hindbrain" not in location and \
+                        "limb" not in location:
                     if index not in locations_to_y_tIndex['rest']:
                         locations_to_y_tIndex['rest'].append(index)
         index += 1
@@ -211,7 +214,6 @@ def get_locations_to_y_tIndex(locations):
 # Set up training data and SVM
 
 examples, labels_mapping, locations = load_named_seq(FASTA_HUMAN_SRC)
-   
 kmers_index = get_kmers_index_lookup(examples)
 X, y = get_XY(examples, labels_mapping, kmers_index)
 clf = svm.SVC(kernel='linear', C=1)
