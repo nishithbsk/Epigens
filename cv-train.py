@@ -8,15 +8,25 @@ import numpy as np
 import itertools
 import pdb
 import re
+# import pickle
 
 from Bio import SeqIO
 from sklearn import svm
 from sklearn import cross_validation
-
-# import pickle
+from sklearn.metrics import roc_curve, auc
 from sklearn.externals import joblib
+from sklearn.preprocessing import label_binarize
+from sklearn.decomposition import PCA
 
-# Config
+from matplotlib import pyplot as plt
+
+
+# === Config ===
+
+TRAIN_EXPERIMENTAL = False
+
+SHOULD_SPLIT = False
+
 VISTA_TABLE_SRC = "data/vistaTable20141113.txt"
 
 FASTA_HUMAN_SRC = "data/humanRegions.fasta"
@@ -30,7 +40,9 @@ NEG_DATASET = "papers/neg.fa"
 GLOBAL_K = 6
 
 
-# Parse
+# === Preprocessing ===
+
+
 def reverse(st):
     a = list(st)
     a.reverse()
@@ -251,44 +263,107 @@ def get_locations_to_y_tIndex(locations):
     return locations_to_y_tIndex
 
 
+# === Prediction ===
+
+
+def plot_2d_results(X, y, preds):
+    pca = PCA(n_components=2)
+    X_r = pca.fit(X).transform(X)
+
+    # Plot scatter
+    plt.figure()
+    cs = "cm"
+    cats = [1, -1]
+    target_names = ["positive", "negative"]
+    for c, i, target_name in zip(cs, cats, target_names):
+        plt.scatter(X_r[y == i, 0], X_r[y == i, 1], c=c, label=target_name)
+    plt.legend()
+    plt.title("PCA of 2d data")
+
+    # Plot mispredictions
+    plt.figure()
+    diff = np.array([1 if y_test[i] == preds[i] else 0 for i in range(len(y_test))])
+    cs = "rg"
+    cats = [0, 1]
+    target_names = ["incorrect", "correct"]
+    for c, i, target_name in zip(cs, cats, target_names):
+        plt.scatter(X_r[diff == i, 0], X_r[diff == i, 1], c=c, label=target_name)
+        plt.legend()
+        plt.title("PCA of correct/incorrect predictions")
+    plt.show()
+
+
+def plot_roc(y_test, y_score):
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+    for i in range(1):
+        fpr[i], tpr[i], _ = roc_curve(y_test, y_score)
+        roc_auc[i] = auc(fpr[i], tpr[i])
+    # Compute micro-average ROC curve and ROC area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+    # Plot of a ROC curve for a specific class
+    plt.figure()
+    plt.plot(fpr[0], tpr[0], label='ROC curve (area = %0.2f)' % roc_auc[0])
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('ROC, Kmer counts used to predict general enhancer functionality')
+    plt.legend(loc="lower right")
+    plt.show()
+
+
 # feature vector index :=> kmer string
 kmers_index = get_kmers_index_lookup()
 
 
-# === Train on experimental dataset ===
-# pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
-# neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
+if TRAIN_EXPERIMENTAL:
+    pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
+    neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
 
-# train_ex = pos_seq + neg_seq
-# train_labels = pos_lmap + neg_lmap
-# X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
+    train_ex = pos_seq + neg_seq
+    train_labels = pos_lmap + neg_lmap
+    X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
 
-# # Add e-box and taat core cols
-# X_train = np.hstack((
-#     X_train,
-#     get_Ebox_col(train_ex),
-#     get_TAAT_core_col(train_ex)
-# ))
+    # Add e-box and taat core cols
+    X_train = np.hstack((
+        X_train,
+        get_Ebox_col(train_ex),
+        get_TAAT_core_col(train_ex)
+    ))
 
-# clf = svm.SVC(kernel='rbf', C=1)
-# clf.fit(X_train, y_train)
+    clf = svm.SVC(kernel='rbf', C=1)
+    clf.fit(X_train, y_train)
 
-# === Test on our own ===
-examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
-X, y = get_XY(test_ex, test_labels, kmers_index)
+else:
+    examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
+    X, y = get_XY(examples, labels, kmers_index)
 
-X = np.hstack((
-    X,
-    get_Ebox_col(examples),
-    get_TAAT_core_col(examples)
-))
+    X = np.hstack((
+        X,
+        get_Ebox_col(examples),
+        get_TAAT_core_col(examples)
+    ))
 
-X_train, X_test, y_train, y_test = cross_validation.train_test_split(
-    X, y, test_size=0.1, random_state=0)
+    clf = svm.SVC(kernel='linear', C=1)
 
-clf = svm.SVC(kernel='linear', C=1)
-clf.fit(X_train, y_train)
-score = clf.score(X_test, y_test)
+    if SHOULD_SPLIT:
+        X_train, X_test, y_train, y_test = cross_validation.train_test_split(
+            X, y, test_size=0.1, random_state=0)
+        clf.fit(X_train, y_train)
+        clf.score(X_test, y_test)
+    else:
+        scores = cross_validation.cross_val_score(clf, X, y, cv=5)
+        print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
+
+    # transform labels from [-1,1] to [0,1]
+    # _y_test = label_binarize(y_test, classes=[-1, 1])
+    # y_score = clf.decision_function(X_test)
+    # plot_roc(_y_test, y_score)
+    # plot_2d_results(X_test, y_test, clf.predict(X_test))
 
 
 # == K-fold cross validation ==
@@ -296,6 +371,26 @@ score = clf.score(X_test, y_test)
 # print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
 # === Plot ===
+# Compute ROC curve and ROC area for each class
+
+
+# Plot ROC curve
+# plt.figure()
+# plt.plot(fpr["micro"], tpr["micro"],
+#          label='micro-average ROC curve (area = {0:0.2f})'
+#                ''.format(roc_auc["micro"]))
+# for i in range(2):
+#     plt.plot(fpr[i], tpr[i], label='ROC curve of class {0} (area = {1:0.2f})'
+#                                    ''.format(i, roc_auc[i]))
+
+# plt.plot([0, 1], [0, 1], 'k--')
+# plt.xlim([0.0, 1.0])
+# plt.ylim([0.0, 1.05])
+# plt.xlabel('False Positive Rate')
+# plt.ylabel('True Positive Rate')
+# plt.title('Some extension of Receiver operating characteristic to multi-class')
+# plt.legend(loc="lower right")
+# plt.show()
 
 # === Serialize ===
 # s = pickle.dumps(clf)
