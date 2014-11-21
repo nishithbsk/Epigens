@@ -342,11 +342,11 @@ else:
     examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
     X, y = get_XY(examples, labels, kmers_index)
 
-    X = np.hstack((
-        X,
-        get_Ebox_col(examples),
-        get_TAAT_core_col(examples)
-    ))
+    # X = np.hstack((
+    #     X,
+    #     get_Ebox_col(examples),
+    #     get_TAAT_core_col(examples)
+    # ))
 
     clf = svm.SVC(kernel='linear', C=1)
 
