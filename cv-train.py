@@ -5,6 +5,8 @@ serializes outputs to files.
 """
 import pandas as pd
 import numpy as np
+import itertools
+import pdb
 
 from Bio import SeqIO
 from sklearn import svm
@@ -20,9 +22,9 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-POS_DATASET = "papers/pos.fa"
+POS_DATASET = "papers/sequence_files/enh_fb.fa"
 
-NEG_DATASET = "papers/neg.fa"
+NEG_DATASET = "papers/sequence_files/random4000.fa"
 
 GLOBAL_K = 6
 
@@ -129,11 +131,16 @@ def parse_fa(path, label):
     seqs = []
     labels = []
 
+    counter = 0
+
     # TODO Should we be using "lower" here? What does it mean
     # for a FASTA letter to be capitalized?
     for x in human_fasta_seq:
         seqs.append((x.id, str(x.seq).lower()))
         labels.append((x.id, float(label)))
+        counter += 1
+        if counter >= 2096:
+            break
 
     return (seqs, labels)
 
@@ -180,12 +187,11 @@ def make_index_dict_from_list(l):
     return dict([(x, i) for i, x in enumerate(l)])
 
 
-def get_kmers_index_lookup(examples):
-    """ Given list of examples, builds the index
-    mapping of kmers."""
-    all_seqs = [x[1] for x in examples]
-    all_kmers = list(reduce(set_kmers_reducer, all_seqs, set()))
-    return make_index_dict_from_list(all_kmers)
+def get_kmers_index_lookup():
+    """ Builds up mapping of index to a unique kmer """
+    global GLOBAL_K
+    all_kmers = [''.join(x) for x in itertools.product("atcg", repeat=GLOBAL_K)]
+    return make_index_dict_from_list(list(set(all_kmers)))
 
 
 def get_XY(examples, labels_mapping, kmer_index):
@@ -230,40 +236,32 @@ def get_locations_to_y_tIndex(locations):
     return locations_to_y_tIndex
 
 
-# === Set up training data and SVM ===
-# examples, labels_mapping, locations = load_named_seq(FASTA_HUMAN_SRC)
-# kmers_index = get_kmers_index_lookup(examples)
-# X, y = get_XY(examples, labels_mapping, kmers_index)
-# clf = svm.SVC(kernel='linear', C=1)
+# feature vector index :=> kmer string
+kmers_index = get_kmers_index_lookup()
 
-# === Manual cross-validation ==
-# X_train, X_test, y_train, y_test = cross_validation.train_test_split(
-#     X, y, test_size=0.1, random_state=0
-# )
 
-# clf.fit(X_train, y_train)
-# clf.score(X_test, y_test)
+# === Train on experimental dataset ===
+pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
+neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
+
+train_ex = pos_seq + neg_seq
+train_labels = pos_lmap + neg_lmap
+X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
+
+clf = svm.SVC(kernel='rbf', C=1)
+clf.fit(X_train, y_train)
+
+
+# === Test on our own ===
+test_ex, test_labels, locations = load_named_seq(FASTA_HUMAN_SRC)
+X_test, y_test = get_XY(test_ex, test_labels, kmers_index)
+
+score = clf.score(X_test, y_test)
+
 
 # == K-fold cross validation ==
 # scores = cross_validation.cross_val_score(clf, X, y, cv=5)
 # print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
-
-# === Test their stuff ===
-pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
-neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
-
-examples = pos_seq + neg_seq
-labels_mapping = pos_lmap + neg_lmap
-kmers_index = get_kmers_index_lookup(examples)
-X, y = get_XY(examples, labels_mapping, kmers_index)
-clf = svm.SVC(kernel='linear', C=1)
-
-X_train, X_test, y_train, y_test = cross_validation.train_test_split(
-    X, y, test_size=0.1, random_state=0
-)
-
-clf.fit(X_train, y_train)
-clf.score(X_test, y_test)
 
 # === Plot ===
 # TODO
