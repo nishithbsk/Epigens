@@ -20,7 +20,11 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-GLOBAL_K = 7
+POS_DATASET = "papers/pos.fa"
+
+NEG_DATASET = "papers/neg.fa"
+
+GLOBAL_K = 6
 
 
 # Parse
@@ -119,6 +123,21 @@ def load_named_seq(path):
     return (_named_sequences, _named_descriptions, _named_locations)
 
 
+def parse_fa(path, label):
+    FH_f = open(path)
+    human_fasta_seq = SeqIO.parse(FH_f, 'fasta')
+    seqs = []
+    labels = []
+
+    # TODO Should we be using "lower" here? What does it mean
+    # for a FASTA letter to be capitalized?
+    for x in human_fasta_seq:
+        seqs.append((x.id, str(x.seq).lower()))
+        labels.append((x.id, float(label)))
+
+    return (seqs, labels)
+
+
 def normalize(v):
     """ Returns normalized v with length 1 """
     return v / np.linalg.norm(v)
@@ -211,30 +230,45 @@ def get_locations_to_y_tIndex(locations):
     return locations_to_y_tIndex
 
 
-# Set up training data and SVM
+# === Set up training data and SVM ===
+# examples, labels_mapping, locations = load_named_seq(FASTA_HUMAN_SRC)
+# kmers_index = get_kmers_index_lookup(examples)
+# X, y = get_XY(examples, labels_mapping, kmers_index)
+# clf = svm.SVC(kernel='linear', C=1)
 
-examples, labels_mapping, locations = load_named_seq(FASTA_HUMAN_SRC)
-kmers_index = get_kmers_index_lookup(examples)
-X, y = get_XY(examples, labels_mapping, kmers_index)
-clf = svm.SVC(kernel='linear', C=1)
-
-# Manual cross-validation
-
+# === Manual cross-validation ==
 # X_train, X_test, y_train, y_test = cross_validation.train_test_split(
 #     X, y, test_size=0.1, random_state=0
 # )
 
 # clf.fit(X_train, y_train)
 # clf.score(X_test, y_test)
-scores = cross_validation.cross_val_score(clf, X, y, cv=5)
-print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
+# == K-fold cross validation ==
+# scores = cross_validation.cross_val_score(clf, X, y, cv=5)
+# print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
-# TODO Plot data, draw, svm so we have a rough approximation
+# === Test their stuff ===
+pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
+neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
 
+examples = pos_seq + neg_seq
+labels_mapping = pos_lmap + neg_lmap
+kmers_index = get_kmers_index_lookup(examples)
+X, y = get_XY(examples, labels_mapping, kmers_index)
+clf = svm.SVC(kernel='linear', C=1)
 
-# Serialize output to string
+X_train, X_test, y_train, y_test = cross_validation.train_test_split(
+    X, y, test_size=0.1, random_state=0
+)
 
+clf.fit(X_train, y_train)
+clf.score(X_test, y_test)
+
+# === Plot ===
+# TODO
+
+# === Serialize ===
 # s = pickle.dumps(clf)
 # with open(TRAIN_DATA_DST % "master", "w") as model_outfile:
 #   model_outfile.write(s)
