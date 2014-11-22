@@ -25,11 +25,27 @@ For the milestone, we have the current checklist:
 - [x] Process Human FASTA data
 - [x] Generate kmer count feature vector
 - [x] Train SVM with default RBF kernel
-- [ ] Generate additional features from Lee et al paper
-- [ ] Generate point scatter plot using PCA of top features (like Fig 1 of Lee
+- [x] Generate additional features from Lee et al paper
+- [x] Generate point scatter plot using PCA of top features (like Fig 1 of Lee
   et al)
-- [ ] Generate precision/recall/false-positive curves (like Fig 2)
-- [ ] K-fold cross validation using sklearn
+- [x] Generate precision/recall/false-positive curves (like Fig 2)
+- [x] K-fold cross validation using sklearn
+
+## Notes on Results
+
+Initial results (sklearn's cv train/test split). Normalizing vector counts 
+help to keep the average accuracy at >0.6.
+
+- accuracy = ~0.61 (no feature sel, linear svm, 6mer features)
+- roc = 0.65
+
+VISTA only predicts enhancers at 11.5 days(? wks) after birth. They say
+that enhancer activity can still be present at a later stage in development,
+i.e. our "pos" labels for enhancer activity is only good for a snapshot at 
+11.5 days and is not predictive of enhancer activity in general.
+
+Using E-box and TAAT-cores didn't help. Will need to do some more hacking
+on these features to see if they can be combined to be useful.
 
 ## Final
 

@@ -16,6 +16,7 @@ from sklearn import cross_validation
 from sklearn.metrics import roc_curve, auc, precision_recall_curve
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
+from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
 
 from matplotlib import pyplot as plt
@@ -26,6 +27,16 @@ from matplotlib import pyplot as plt
 TRAIN_EXPERIMENTAL = False
 
 SHOULD_SPLIT = True
+
+SPLIT_PLOT_RESULTS = False
+
+FEATURE_SELECTION = False
+
+CONTINUOUS_FEATURES = True
+
+FOLD_CV = False
+
+NORMALIZE = True
 
 VISTA_TABLE_SRC = "data/vistaTable20141113.txt"
 
@@ -158,11 +169,6 @@ def parse_fa(path, label):
     return (seqs, labels)
 
 
-def normalize(v):
-    """ Returns normalized v with length 1 """
-    return v / np.linalg.norm(v)
-
-
 def get_kmer_counts(seq, ref):
     """ Given example sequence and a reference table mapping
     kmers to indices, returns a numpy array representing one row
@@ -189,8 +195,11 @@ def get_kmer_counts(seq, ref):
     for kmer in pos_kmers:
         if kmer != neg_strand(kmer):
             idx = ref[kmer]
-            row[idx] += 1
-    return normalize(row)
+            if CONTINUOUS_FEATURES: 
+                row[idx] += 1
+            else:
+                row[idx] = 1
+    return row
 
 
 def make_index_dict_from_list(l):
@@ -243,6 +252,8 @@ def get_locations_to_y_tIndex(locations):
         'limb': [],
         'rest': []
     }
+
+    cutoff = (8 * len(locations)) / 10
 
     index = 0
     for (x, y) in locations[cutoff:]:
@@ -351,7 +362,7 @@ if TRAIN_EXPERIMENTAL:
 
 else:
     examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
-    X, y = get_XY(examples, labels, kmers_index)
+    _X, _y = get_XY(examples, labels, kmers_index)
 
     # X = np.hstack((
     #     X,
@@ -361,18 +372,36 @@ else:
 
     clf = svm.SVC(kernel='linear', C=1)
 
+    X = _X
+    y = _y
+
+    if NORMALIZE:
+        X = normalize(X, axis=1, norm='l1')
+
+    if FEATURE_SELECTION:
+        from sklearn.feature_selection import VarianceThreshold
+        from sklearn.feature_selection import SelectKBest
+        from sklearn.feature_selection import chi2
+        # Remove low-variance features
+        # X = VarianceThreshold(threshold=0.8).fit_transform(X)
+        # K-best features
+        X = SelectKBest(chi2, k=5).fit_transform(X, y)
+
     if SHOULD_SPLIT:
         X_train, X_test, y_train, y_test = cross_validation.train_test_split(
-            X, y, test_size=0.1, random_state=0)
+            X, y, test_size=0.3, random_state=0)
         clf.fit(X_train, y_train)
         clf.score(X_test, y_test)
         # transform labels from [-1,1] to [0,1]
         _y_test = label_binarize(y_test, classes=[-1, 1])
         y_scores = clf.decision_function(X_test)
-        plot_roc(_y_test, y_scores)
-        plot_precision_recall(_y_test, y_scores)
-        plot_2d_results(X_test, y_test, clf.predict(X_test))
-    else:
+
+        if SPLIT_PLOT_RESULTS:
+            plot_roc(_y_test, y_scores)
+            plot_precision_recall(_y_test, y_scores)
+            plot_2d_results(X_test, y_test, clf.predict(X_test))
+
+    if FOLD_CV:
         scores = cross_validation.cross_val_score(clf, X, y, cv=5)
         print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
