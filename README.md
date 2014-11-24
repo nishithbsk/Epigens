@@ -18,9 +18,13 @@ immune to kernel choice, which indicated linear separability across a
 high dimensional dataset (feature space of all possible kmers in regions of
 interest).
 
+## Description of Data
+
+
+
 ## Milestone
 
-For the milestone, we have the current checklist:
+For the milestone, we have completed the current checklist:
 
 - [x] Process Human FASTA data
 - [x] Generate kmer count feature vector
