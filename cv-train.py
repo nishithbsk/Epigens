@@ -18,6 +18,7 @@ from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
+from sklearn.feature_selection import VarianceThreshold
 
 from matplotlib import pyplot as plt
 
@@ -195,7 +196,7 @@ def get_kmer_counts(seq, ref):
     for kmer in pos_kmers:
         if kmer != neg_strand(kmer):
             idx = ref[kmer]
-            if CONTINUOUS_FEATURES: 
+            if CONTINUOUS_FEATURES:
                 row[idx] += 1
             else:
                 row[idx] = 1
@@ -359,51 +360,52 @@ if TRAIN_EXPERIMENTAL:
 
     clf = svm.SVC(kernel='rbf', C=1)
     clf.fit(X_train, y_train)
+    sys.exit(0)
 
-else:
-    examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
-    _X, _y = get_XY(examples, labels, kmers_index)
+# else
 
-    # X = np.hstack((
-    #     X,
-    #     get_Ebox_col(examples),
-    #     get_TAAT_core_col(examples)
-    # ))
+# examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
+# _X, _y = get_XY(examples, labels, kmers_index)
 
-    clf = svm.SVC(kernel='linear', C=1)
+# X = np.hstack((
+#     X,
+#     get_Ebox_col(examples),
+#     get_TAAT_core_col(examples)
+# ))
 
-    X = _X
-    y = _y
+clf = svm.SVC(kernel='linear', C=1)
 
-    if NORMALIZE:
-        X = normalize(X, axis=1, norm='l1')
+X = _X
+X = VarianceThreshold(threshold=2.0).fit_transform(X)
+y = _y
 
-    if FEATURE_SELECTION:
-        from sklearn.feature_selection import VarianceThreshold
-        from sklearn.feature_selection import SelectKBest
-        from sklearn.feature_selection import chi2
-        # Remove low-variance features
-        # X = VarianceThreshold(threshold=0.8).fit_transform(X)
-        # K-best features
-        X = SelectKBest(chi2, k=5).fit_transform(X, y)
+if NORMALIZE:
+    X = normalize(X, axis=1, norm='l1')
 
-    if SHOULD_SPLIT:
-        X_train, X_test, y_train, y_test = cross_validation.train_test_split(
-            X, y, test_size=0.3, random_state=0)
-        clf.fit(X_train, y_train)
-        clf.score(X_test, y_test)
-        # transform labels from [-1,1] to [0,1]
-        _y_test = label_binarize(y_test, classes=[-1, 1])
-        y_scores = clf.decision_function(X_test)
+if FEATURE_SELECTION:
+    from sklearn.feature_selection import SelectKBest
+    from sklearn.feature_selection import chi2
+    # Remove low-variance features
+    # K-best features
+    X = SelectKBest(chi2, k=60).fit_transform(X, y)
 
-        if SPLIT_PLOT_RESULTS:
-            plot_roc(_y_test, y_scores)
-            plot_precision_recall(_y_test, y_scores)
-            plot_2d_results(X_test, y_test, clf.predict(X_test))
+if SHOULD_SPLIT:
+X_train, X_test, y_train, y_test = cross_validation.train_test_split(
+    X, y, test_size=0.3, random_state=0)
+clf.fit(X_train, y_train)
+clf.score(X_test, y_test)
+    # transform labels from [-1,1] to [0,1]
+    _y_test = label_binarize(y_test, classes=[-1, 1])
+    y_scores = clf.decision_function(X_test)
 
-    if FOLD_CV:
-        scores = cross_validation.cross_val_score(clf, X, y, cv=5)
-        print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
+    if SPLIT_PLOT_RESULTS:
+        plot_roc(_y_test, y_scores)
+        plot_precision_recall(_y_test, y_scores)
+        plot_2d_results(X_test, y_test, clf.predict(X_test))
+
+if FOLD_CV:
+    scores = cross_validation.cross_val_score(clf, X, y, cv=5)
+    print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
 
 # == K-fold cross validation ==
