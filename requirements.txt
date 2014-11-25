@@ -1,5 +1,12 @@
-scipy==0.14.0
-scikit-learn==0.14.1
-pandas=0.14.1
-numpy==1.9.0
+Cython==0.21.1
+argparse==1.2.1
 biopython==1.64
+numpy==1.9.0
+pandas==0.14.1
+pybedtools==0.6.8
+python-dateutil==2.2
+pytz==2014.9
+scikit-learn==0.15.2
+scipy==0.14.0
+six==1.8.0
+wsgiref==0.1.2
