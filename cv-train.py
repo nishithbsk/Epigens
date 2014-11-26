@@ -45,9 +45,9 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-POS_DATASET = "papers/pos.fa"
+POS_DATASET = "data/fasta/enh_fb.fa"
 
-NEG_DATASET = "papers/neg.fa"
+NEG_DATASET = "data/fasta/random4000.fa"
 
 GLOBAL_K = 6
 
@@ -67,6 +67,14 @@ def cmpl_base_pair(x):
     elif x == 'T': return 'A'
     elif x == 'G': return 'C'
     else: return 'N'
+
+
+def extract_extra_features(seq):
+    """ Given single sequence, returns
+    a list of additional features as listed
+    by Kristin. """
+    extra_features = []
+    return extra_features
 
 
 def neg_strand(pos_strand):
@@ -128,7 +136,7 @@ def load_vista_db(path):
 
 
 def load_named_seq(path):
-    """ Returns two lists of tuples. The first is (id<int>, seq<str>),
+    """ Returns two lists of tuples The first is (id<int>, seq<str>),
     representing each entry of the fasta file.
     The second is (id<int>, label<str>) representing the labels
     associated with each id (positive/negative)"""
@@ -164,8 +172,6 @@ def parse_fa(path, label):
         seqs.append((x.id, str(x.seq).lower()))
         labels.append((x.id, float(label)))
         counter += 1
-        if counter >= 2096:
-            break
 
     return (seqs, labels)
 
@@ -347,19 +353,21 @@ if TRAIN_EXPERIMENTAL:
     pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
     neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
 
-    train_ex = pos_seq + neg_seq
-    train_labels = pos_lmap + neg_lmap
-    X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
+    examples = pos_seq + neg_seq
+    labels = pos_lmap + neg_lmap
+    X, y = get_XY(examples, labels, kmers_index)
+
+    if NORMALIZE:
+        X = normalize(X, axis=1, norm='l1')
 
     # Add e-box and taat core cols
-    # X_train = np.hstack((
-    #     X_train,
+    # X = np.hstack((
+    #     X,
     #     get_Ebox_col(train_ex),
     #     get_TAAT_core_col(train_ex)
     # ))
 
     clf = svm.SVC(kernel='rbf', C=1)
-    clf.fit(X_train, y_train)
 
     if NORMALIZE:
         X = normalize(X, axis=1, norm='l1')
@@ -380,6 +388,10 @@ if TRAIN_EXPERIMENTAL:
         # transform labels from [-1,1] to [0,1]
         _y_test = label_binarize(y_test, classes=[-1, 1])
         y_scores = clf.decision_function(X_test)
+
+        scores = cross_validation.cross_val_score(clf, X_train, y_train, cv=5)
+        print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
+
 
         if SPLIT_PLOT_RESULTS:
             plot_roc(_y_test, y_scores)
