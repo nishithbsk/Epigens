@@ -128,7 +128,7 @@ def load_vista_db(path):
 
 
 def load_named_seq(path):
-    """ Returns two lists of tuples. The first is (id<int>, seq<str>),
+    """ Returns two lists of tuples The first is (id<int>, seq<str>),
     representing each entry of the fasta file.
     The second is (id<int>, label<str>) representing the labels
     associated with each id (positive/negative)"""
@@ -347,22 +347,21 @@ if TRAIN_EXPERIMENTAL:
     pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
     neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
 
-    train_ex = pos_seq + neg_seq
-    train_labels = pos_lmap + neg_lmap
-    X_train, y_train = get_XY(train_ex, train_labels, kmers_index)
+    examples = pos_seq + neg_seq
+    labels = pos_lmap + neg_lmap
+    X, y = get_XY(examples, labels, kmers_index)
+
+    if NORMALIZE:
+        X = normalize(X, axis=1, norm='l1')
 
     # Add e-box and taat core cols
-    # X_train = np.hstack((
-    #     X_train,
+    # X = np.hstack((
+    #     X,
     #     get_Ebox_col(train_ex),
     #     get_TAAT_core_col(train_ex)
     # ))
 
     clf = svm.SVC(kernel='rbf', C=1)
-    clf.fit(X_train, y_train)
-
-    if NORMALIZE:
-        X = normalize(X, axis=1, norm='l1')
 
     if FEATURE_SELECTION:
         from sklearn.feature_selection import SelectKBest
