@@ -45,9 +45,9 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-POS_DATASET = "papers/pos.fa"
+POS_DATASET = "data/fasta/pos.fa"
 
-NEG_DATASET = "papers/neg.fa"
+NEG_DATASET = "data/fasta/neg.fa"
 
 GLOBAL_K = 6
 
@@ -363,6 +363,9 @@ if TRAIN_EXPERIMENTAL:
 
     clf = svm.SVC(kernel='rbf', C=1)
 
+    if NORMALIZE:
+        X = normalize(X_train, axis=1, norm='l1')
+
     if FEATURE_SELECTION:
         from sklearn.feature_selection import SelectKBest
         from sklearn.feature_selection import chi2
@@ -379,6 +382,10 @@ if TRAIN_EXPERIMENTAL:
         # transform labels from [-1,1] to [0,1]
         _y_test = label_binarize(y_test, classes=[-1, 1])
         y_scores = clf.decision_function(X_test)
+
+        scores = cross_validation.cross_val_score(clf, X_train, y_train, cv=5)
+        print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
+
 
         if SPLIT_PLOT_RESULTS:
             plot_roc(_y_test, y_scores)
