@@ -164,8 +164,6 @@ def parse_fa(path, label):
         seqs.append((x.id, str(x.seq).lower()))
         labels.append((x.id, float(label)))
         counter += 1
-        if counter >= 2096:
-            break
 
     return (seqs, labels)
 
@@ -364,7 +362,7 @@ if TRAIN_EXPERIMENTAL:
     clf = svm.SVC(kernel='rbf', C=1)
 
     if NORMALIZE:
-        X = normalize(X_train, axis=1, norm='l1')
+        X = normalize(X, axis=1, norm='l1')
 
     if FEATURE_SELECTION:
         from sklearn.feature_selection import SelectKBest
