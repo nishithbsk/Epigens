@@ -15,8 +15,8 @@ def convert_to_bed_entry(line):
 
 if __name__ == "__main__":
     rowcount = 0
-    with open(sys.argv[1]) as fin, open(sys.argv[2], "w") as fout:
-        writer = csv.writer(fout, delimiter="\t")
+    with open(sys.argv[1]) as fin, open(sys.argv[2], "wb") as fout:
+        writer = csv.writer(fout, delimiter="\t", lineterminator='\n')
         for line in fin:
             try:
                 writer.writerow(convert_to_bed_entry(line))
