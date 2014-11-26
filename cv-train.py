@@ -45,9 +45,9 @@ FASTA_HUMAN_SRC = "data/humanRegions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-POS_DATASET = "data/fasta/pos.fa"
+POS_DATASET = "data/fasta/enh_fb.fa"
 
-NEG_DATASET = "data/fasta/neg.fa"
+NEG_DATASET = "data/fasta/random4000.fa"
 
 GLOBAL_K = 6
 
@@ -67,6 +67,14 @@ def cmpl_base_pair(x):
     elif x == 'T': return 'A'
     elif x == 'G': return 'C'
     else: return 'N'
+
+
+def extract_extra_features(seq):
+    """ Given single sequence, returns
+    a list of additional features as listed
+    by Kristin. """
+    extra_features = []
+    return extra_features
 
 
 def neg_strand(pos_strand):
