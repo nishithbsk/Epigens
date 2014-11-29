@@ -27,7 +27,7 @@ from matplotlib import pyplot as plt
 
 USE_BEER_DATASET = False
 
-USE_VISTA_DATASET = False
+USE_VISTA_DATASET = True
 
 SHOULD_SPLIT = True
 
@@ -41,9 +41,9 @@ FOLD_CV = False
 
 NORMALIZE = True
 
-VISTA_TABLE_SRC = "data/vistaTable20141113.txt"
+VISTA_TABLE_SRC = "../data/txt/vistaTable20141113.txt"
 
-FASTA_HUMAN_SRC = "data/humanRegions.fasta"
+FASTA_HUMAN_SRC = "../data/fasta/human_regions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
@@ -76,6 +76,11 @@ def extract_extra_features(seq):
     a list of additional features as listed
     by Kristin. """
     extra_features = []
+
+    description = seq[0]
+
+
+
     return extra_features
 
 
@@ -136,16 +141,14 @@ def load_vista_db(path):
     print "--> vista table shape loaded from %s: %s" % (path, str(_df.shape))
     return _df
 
+# def gen_neg_seqs(bt_string, genome='hg19', exclude_bedfile):
+#     """ Given a bedtool file of positive examples,
+#     shuffles sequence around the genome N times, and
+#     outputs the N shuffled sequences."""
 
-def gen_neg_seqs(bt_string, genome='hg19', exclude_bedfile):
-    """ Given a bedtool file of positive examples,
-    shuffles sequence around the genome N times, and
-    outputs the N shuffled sequences."""
-
-    bedfile = pybedtools.BedTool(bt_string, from_string=True)
-    series = bedfile.shuffle(genome=genome, seed=1, excl=bedfile)
-    return series
-
+#     bedfile = pybedtools.BedTool(bt_string, from_string=True)
+#     series = bedfile.shuffle(genome=genome, seed=1, excl=bedfile)
+#     return series
 
 def load_named_seq(path):
     """ Returns two lists of tuples The first is (id<int>, seq<str>),
