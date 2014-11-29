@@ -93,10 +93,108 @@ def lfd(description):
     return lts(description.split("|")[3].strip())
 
 
+def get_locations_to_y_tIndex(locations):
+    """ mocations_to_y_tIndex is a dictionary that maps location
+    (eg. hindbrain) to  indices into the y_t vector. """
+
+    locations_to_y_tIndex = {
+        'forebrain': [],
+        'hindbrain': [],
+        'limb': [],
+        'rest': []
+    }
+
+    cutoff = (8 * len(locations)) / 10
+
+    index = 0
+    for (x, y) in locations[cutoff:]:
+        if len(y) > 0:
+            for location in y:
+                if "forebrain" in location:
+                    locations_to_y_tIndex['forebrain'].append(index)
+                if "hindbrain" in location:
+                    locations_to_y_tIndex['hindbrain'].append(index)
+                if "limb" in location:
+                    locations_to_y_tIndex['limb'].append(index)
+                if "forebrain" not in location and \
+                        "hindbrain" not in location and \
+                        "limb" not in location:
+                    if index not in locations_to_y_tIndex['rest']:
+                        locations_to_y_tIndex['rest'].append(index)
+        index += 1
+    return locations_to_y_tIndex
+
+
+"""
+Dist:
+    forebrain => 309
+    midbrain => 253
+    hindbrain => 236
+    neural tube => 170
+    limb => 162
+    other => 596
+"""
+
+
+def iftl(tissue_label):
+    """ Returns int for tissue label """
+    if tissue_label == "brain": return 1
+    elif tissue_label == "limb": return 2
+    elif tissue_label == "neural": return 3
+    else: return 0
+
+
 def lftd(description):
     """ converts descriptions to tissue labels.
+    Input is fasta descr. """
+    regex = "([^\[]+)\[(\d+)\/(\d+)\]"
+    ranks = []
+    for raw in description.split("|")[4:]:
+        line = raw.strip()
+        if "brain" in line:
+            _, count, _ = re.match(regex, line).groups()
+            ranks.append(("brain", int(count)))
+        if "limb" in line:
+            _, count, _ = re.match(regex, line).groups()
+            ranks.append(("limb", int(count)))
+        if "neural" in line:
+            _, count, _ = re.match(regex, line).groups()
+            ranks.append(("neural", int(count)))
+    if len(ranks) == 0:
+        return 0
+    else:
+        label, score = max(ranks, key=lambda x: x[1])
+        return iftl(label)
+
+
+def ifbd(brain_label):
+    if brain_label == "fore": return 1
+    elif brain_label == "mid": return 2
+    elif brain_label == "hind": return 3
+    return 0
+
+
+def lfbd(description):
+    """ converts descriptions to brain labels.
     Input is fasta descr """
-    return description.split("|")[]
+    regex = "([^\[]+)\[(\d+)\/(\d+)\]"
+    ranks = []
+    for raw in descriptions.split("|")[4:]:
+        line = raw.strip()
+        if "midbrain" in line:
+            _, count, _ = re.match(regex, line).groups()
+            ranks.append(("mid", int(count)))
+        if "forebrain" in line:
+            _, count, _ = re.match(regex, line).groups()
+            ranks.append(("fore", int(count)))
+        if "hindbrain" in line:
+            _, count, _ = re.match(regex, line).groups()
+            ranks.append(("hind", int(count)))
+    if len(ranks) == 0:
+        return 0
+    else:
+        label, score = max(ranks, key=lambda x: x[1])
+        return ifbd(label)
 
 
 def parse_fa(path, label):
@@ -127,7 +225,7 @@ def parse_fa_tissue(path):
 
     for entry in human_fasta_seq:
         seqs.append(str(entry.seq).lower())
-        _labels.append(extract_tissue(entry))
+        _labels.append(lftd(entry))
 
     return (seqs, _labels)
 
@@ -136,16 +234,16 @@ def parse_fa_fine_grain(path):
     """ Given a fasta file that represents positive
     labels, returns a pair of (sequence, label) numpy
     arrays. Useful for constructing X/y for training """
-    FH_f = open(path)
-    human_fasta_seq = SeqIO.parse(FH_f, 'fasta')
+    fasta_file = open(path)
+    human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
     seqs = []
-    labels = []
+    _labels = []
 
-    for x in human_fasta_seq:
-        seqs.append(str(x.seq).lower())
-        labels.append(extract_brain_part(x))
+    for entry in human_fasta_seq:
+        seqs.append(str(entry.seq).lower())
+        _labels.append(lfbd(entry))
 
-    return (seqs, labels)
+    return (seqs, _labels)
 
 
 def get_kmer_counts(seq, ref):
@@ -215,38 +313,6 @@ def get_Ebox_col(examples):
     regex = "ca[atcg]{2}tg"
     expr = lambda x: 1.0 if re.search(regex, x) else 0.0
     return np.array(map(expr, all_seqs)).reshape(len(all_seqs), 1)
-
-
-def get_locations_to_y_tIndex(locations):
-    """ locations_to_y_tIndex is a dictionary that maps location
-    (eg. hindbrain) to  indices into the y_t vector. """
-
-    locations_to_y_tIndex = {
-        'forebrain': [],
-        'hindbrain': [],
-        'limb': [],
-        'rest': []
-    }
-
-    cutoff = (8 * len(locations)) / 10
-
-    index = 0
-    for (x, y) in locations[cutoff:]:
-        if len(y) > 0:
-            for location in y:
-                if "forebrain" in location:
-                    locations_to_y_tIndex['forebrain'].append(index)
-                if "hindbrain" in location:
-                    locations_to_y_tIndex['hindbrain'].append(index)
-                if "limb" in location:
-                    locations_to_y_tIndex['limb'].append(index)
-                if "forebrain" not in location and \
-                        "hindbrain" not in location and \
-                        "limb" not in location:
-                    if index not in locations_to_y_tIndex['rest']:
-                        locations_to_y_tIndex['rest'].append(index)
-        index += 1
-    return locations_to_y_tIndex
 
 
 # === Prediction ===
