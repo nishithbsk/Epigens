@@ -40,7 +40,7 @@ def gen_neg_seqs(bedfilename, shuffledfilename):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print "Usage: ./etl positive_examples.bed vt-human <genome>"
+        print "Usage: gen_neg_seqs.py positive_examples.bed vt-human <genome>"
         print "First arg is path to positive examples file"
         print "Second arg is out path to write to"
         print "[Optional] Third arg is genome to use. One of hg19|mm9"

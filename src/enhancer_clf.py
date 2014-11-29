@@ -44,13 +44,15 @@ GLOBAL_K = 6
 # === Preprocessing ===
 
 
-def reverse(st):
-    a = list(st)
-    a.reverse()
-    return a
+def reverse(input_str):
+    """ Simple reverse string """
+    list_form = list(input_str)
+    list_form.reverse()
+    return list_form
 
 
 def cmpl_base_pair(x):
+    """ Get complementary base pair """
     if x == 'A': return 'T'
     elif x == 'C': return 'G'
     elif x == 'T': return 'A'
@@ -58,10 +60,10 @@ def cmpl_base_pair(x):
     else: return 'N'
 
 
-def neg_strand(pos_seq):
+def neg_strand(pos_strand):
     """ Given pos_strand sequence, returns complementary
     negative sequence """
-    return "".join(map(cmpl_base_pair, reverse(pos_seq)))
+    return "".join(map(cmpl_base_pair, reverse(pos_strand)))
 
 
 def gen_kmers(seq, k=GLOBAL_K):
@@ -91,9 +93,48 @@ def lfd(description):
     return lts(description.split("|")[3].strip())
 
 
+def lftd(description):
+    """ converts descriptions to tissue labels.
+    Input is fasta descr """
+    return description.split("|")[]
+
+
 def parse_fa(path, label):
     """ Given a fasta file that represents a label
     class, returns a pair of (sequence, label) numpy
+    arrays. Useful for constructing X/y for training """
+    fasta_file = open(path)
+    human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
+    seqs = []
+    _labels = []
+
+    for entry in human_fasta_seq:
+        seqs.append(str(entry.seq).lower())
+        _labels.append(float(label))
+
+    return (seqs, _labels)
+
+
+def parse_fa_tissue(path):
+    """ Given a fasta file that represents positive
+    labels, returns a pair of (sequence, label) numpy
+    arrays. Useful for constructing X/y for training """
+    fasta_file = open(path)
+    human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
+
+    seqs = []
+    _labels = []
+
+    for entry in human_fasta_seq:
+        seqs.append(str(entry.seq).lower())
+        _labels.append(extract_tissue(entry))
+
+    return (seqs, _labels)
+
+
+def parse_fa_fine_grain(path):
+    """ Given a fasta file that represents positive
+    labels, returns a pair of (sequence, label) numpy
     arrays. Useful for constructing X/y for training """
     FH_f = open(path)
     human_fasta_seq = SeqIO.parse(FH_f, 'fasta')
@@ -101,8 +142,8 @@ def parse_fa(path, label):
     labels = []
 
     for x in human_fasta_seq:
-        seqs.append((x.id, str(x.seq).lower()))
-        labels.append((x.id, float(label)))
+        seqs.append(str(x.seq).lower())
+        labels.append(extract_brain_part(x))
 
     return (seqs, labels)
 
@@ -273,7 +314,7 @@ def plot_roc(y_test, y_score):
 
 
 def print_usage_and_exit():
-    print "Usage: enhancer_clf pos.fa neg.fa <prediction_type>"
+    print "Usage: enhancer_clf.py pos.fa neg.fa <prediction_type>"
     print "First two args are paths to datasets"
     print "[Optional] third arg is one of <enhancer|tissue|fine-grain>"
     print "enhancer predicts general enhancer activity"

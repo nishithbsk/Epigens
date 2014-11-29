@@ -20,7 +20,12 @@ interest).
 
 ## Description of Data
 
+Mostly for reference.
 
+- Vista Dataset. Main one to use. Includes hg19/mm9 data, pos/neg enhancer,
+  tissue, and part of brain labels.
+- Beer Labs Dataset. Obtained >.90 clf accuracy for some pos/neg enhancer regions.
+  Useful for testing that our models aren't too far off.
 
 ## Milestone
 
@@ -53,8 +58,5 @@ on these features to see if they can be combined to be useful.
 
 ## Final
 
-We shall brainstorm additional features to generate from the genomic sequence
-which would help us. We will also apply more evaluation techniques from
-standard machine learning, and take a look at alternative classifiers, as
-well as attempt to make stonger predicitions (multiclass instead of binary).
+TODO: Add descriptions of features used for various prediction tasks.
 
