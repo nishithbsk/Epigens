@@ -71,13 +71,7 @@ def cmpl_base_pair(x):
     elif x == 'G': return 'C'
     else: return 'N'
 
-
-def extract_extra_features(seq):
-    """ Given single sequence, returns
-    a list of additional features as listed
-    by Kristin. """
-    extra_features = []
-
+def seq_to_bed(seq):
     description = seq[0].split("|")[1]
     chromName = description.split(":")[0]
 
@@ -91,7 +85,25 @@ def extract_extra_features(seq):
     with open('seq.bed', 'w') as writefile:
         writefile.write(bedLine)
 
+def extract_extra_features_2(seq):
+    """ Given single sequence, returns
+    a list of additional features as listed
+    by Kristin. """
+    extra_features = []
+
+    return extra_features
+
+def extract_extra_features_1(seq):
+    """ Given single sequence, returns
+    a list of additional features as listed
+    by Kristin. """
+    extra_features = []
+
+    seq_to_bed(seq)
+
     seqFile = pybedtools.BedTool('seq.bed')
+    # Can easily also get from other body parts
+    # We could just pass the body part with the function
     mnemonicsFile = pybedtools.BedTool('../data/bed/heart_mnemonics.bed')
 
     mnemonicsFile.intersect(seqFile, output='intersection.bed')
