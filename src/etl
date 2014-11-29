@@ -3,9 +3,13 @@
 """
 Given a bedfile of positive examples, generates
 a "<name>-pos.fa" and "<name>-neg.fa" files for
-classifiers. Positives are enhancer regions, aka
+classifiers.
+
+Positives are enhancer regions, aka
 the original bedfile, and negatives are the randomly
-shuffled regions. The negative examples may not overlap
+shuffled regions.
+
+The negative examples may not overlap
 the positive enhancer regions, but may overlap one
 another, though the chances are small as they are allowed
 to be shuffled across the entire genome.

@@ -8,7 +8,7 @@ import numpy as np
 import itertools
 import pdb
 import re
-# import pickle
+import pybedtools
 
 from Bio import SeqIO
 from sklearn import svm
@@ -25,7 +25,9 @@ from matplotlib import pyplot as plt
 
 # === Config ===
 
-TRAIN_EXPERIMENTAL = True
+USE_BEER_DATASET = False
+
+USE_VISTA_DATASET = False
 
 SHOULD_SPLIT = True
 
@@ -133,6 +135,16 @@ def load_vista_db(path):
         colNames=["id", "bracketing_genes", "human_coords", "mouse_coords"])
     print "--> vista table shape loaded from %s: %s" % (path, str(_df.shape))
     return _df
+
+
+def gen_neg_seqs(bt_string, genome='hg19', exclude_bedfile):
+    """ Given a bedtool file of positive examples,
+    shuffles sequence around the genome N times, and
+    outputs the N shuffled sequences."""
+
+    bedfile = pybedtools.BedTool(bt_string, from_string=True)
+    series = bedfile.shuffle(genome=genome, seed=1, excl=bedfile)
+    return series
 
 
 def load_named_seq(path):
@@ -349,7 +361,7 @@ def plot_roc(y_test, y_score):
 kmers_index = get_kmers_index_lookup()
 
 
-if TRAIN_EXPERIMENTAL:
+if USE_BEER_DATASET:
     pos_seq, pos_lmap = parse_fa(POS_DATASET, 1)
     neg_seq, neg_lmap = parse_fa(NEG_DATASET, -1)
 
@@ -399,7 +411,7 @@ if TRAIN_EXPERIMENTAL:
             plot_2d_results(X_test, y_test, clf.predict(X_test))
 
 
-else:
+if USE_VISTA_DATASET:
     examples, labels, locations = load_named_seq(FASTA_HUMAN_SRC)
     _X, _y = get_XY(examples, labels, kmers_index)
 
