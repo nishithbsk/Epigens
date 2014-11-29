@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import itertools
 import pdb
+import os
 import re
 import pybedtools
 
@@ -27,7 +28,7 @@ from matplotlib import pyplot as plt
 
 USE_BEER_DATASET = False
 
-USE_VISTA_DATASET = False
+USE_VISTA_DATASET = True
 
 SHOULD_SPLIT = True
 
@@ -41,9 +42,9 @@ FOLD_CV = False
 
 NORMALIZE = True
 
-VISTA_TABLE_SRC = "data/vistaTable20141113.txt"
+VISTA_TABLE_SRC = "../data/txt/vistaTable20141113.txt"
 
-FASTA_HUMAN_SRC = "data/humanRegions.fasta"
+FASTA_HUMAN_SRC = "../data/fasta/human_regions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
@@ -70,12 +71,93 @@ def cmpl_base_pair(x):
     elif x == 'G': return 'C'
     else: return 'N'
 
+def seq_to_bed(seq):
+    description = seq[0].split("|")[1]
+    chromName = description.split(":")[0]
 
-def extract_extra_features(seq):
+    chromRange = description.split(":")[1]
+    chromStart = chromRange.split("-")[0]
+    chromEnd = chromRange.split("-")[1]
+
+    bedLine = [chromName, chromStart, chromEnd]
+    bedLine = '\t'.join(bedLine)
+
+    with open('seq.bed', 'w') as writefile:
+        writefile.write(bedLine)
+
+def extract_extra_features_2(seq):
     """ Given single sequence, returns
     a list of additional features as listed
     by Kristin. """
     extra_features = []
+
+    seq_to_bed(seq)
+
+    seqFile = pybedtools.BedTool('seq.bed')
+
+    TF_binding_sites = pybedtools.BedTool('TF_binding_sites.bed')
+
+    TF_binding_sites.intersect(seqFile, output='intersection_2.bed')
+
+    intersectionFile = open('intersection_2.bed', 'r')
+    intersections = intersectionFile.readlines()
+
+    TFDictionary = {'P300' : 0, 'TCF' : 0, 'TBF' : 0}
+    for intersection in intersections:
+        intersection = intersection.split("\t")
+        TF = intersection[3]
+
+        if('P300' in TF):
+            TFDictionary['P300'] = 1
+        elif('TCF' in TF):
+            TFDictionary['TCF'] = 1
+        elif('TBF' in TF):
+            TFDictionary['TBF'] = 1
+
+    extra_features = TFDictionary.values()
+
+    os.remove('seq.bed')
+    os.remove('intersection_2.bed')
+    
+    return extra_features
+
+def extract_extra_features_1(seq):
+    """ Given single sequence, returns
+    a list of additional features as listed
+    by Kristin. """
+    extra_features = []
+
+    seq_to_bed(seq)
+
+    seqFile = pybedtools.BedTool('seq.bed')
+    # Can easily also get from other body parts
+    # We could just pass the body part with the function
+    mnemonicsFile = pybedtools.BedTool('../data/bed/heart_mnemonics.bed')
+
+    mnemonicsFile.intersect(seqFile, output='intersection_1.bed')
+
+    intersectionFile = open('intersection_1.bed', 'r')
+    intersections = intersectionFile.readlines()
+
+    statesDictionary = {'Enh' : 0, 'EnhG' : 0, 'Het' : 0, 'TxWk' : 0}
+    for intersection in intersections:
+        intersection = intersection.split("\t")
+        state = intersection[3]
+
+        if('Enh' in state):
+            statesDictionary['Enh'] = 1
+        elif('EnhG' in state):
+            statesDictionary['EnhG'] = 1
+        elif('Het' in state):
+            statesDictionary['Het'] = 1
+        elif('TxWk' in state):
+            statesDictionary['TxWk'] = 1
+
+    extra_features = statesDictionary.values()
+        
+    os.remove('seq.bed')
+    os.remove('intersection_1.bed')
+
     return extra_features
 
 
@@ -136,16 +218,14 @@ def load_vista_db(path):
     print "--> vista table shape loaded from %s: %s" % (path, str(_df.shape))
     return _df
 
+# def gen_neg_seqs(bt_string, genome='hg19', exclude_bedfile):
+#     """ Given a bedtool file of positive examples,
+#     shuffles sequence around the genome N times, and
+#     outputs the N shuffled sequences."""
 
-def gen_neg_seqs(bt_string, genome='hg19', exclude_bedfile):
-    """ Given a bedtool file of positive examples,
-    shuffles sequence around the genome N times, and
-    outputs the N shuffled sequences."""
-
-    bedfile = pybedtools.BedTool(bt_string, from_string=True)
-    series = bedfile.shuffle(genome=genome, seed=1, excl=bedfile)
-    return series
-
+#     bedfile = pybedtools.BedTool(bt_string, from_string=True)
+#     series = bedfile.shuffle(genome=genome, seed=1, excl=bedfile)
+#     return series
 
 def load_named_seq(path):
     """ Returns two lists of tuples The first is (id<int>, seq<str>),
