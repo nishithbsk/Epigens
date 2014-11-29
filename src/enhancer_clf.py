@@ -1,30 +1,28 @@
-#!/usr/bin/python
-
 """
 Given two files "pos.fa" and "neg.fa", does 5-fold
-cross validation to determine the accuracy of predicting
+cross validation to determine the auroc predicting
 positive from negative examples.
+
 Optionally writes the model to an "out" directory.
+
 Optionally plots precision/recall curves.
 """
 
 import re
-import sys
 import pdb
 import itertools
-import pandas as pd
+import argparse
 import numpy as np
-import pybedtools
 
 from Bio import SeqIO
 from sklearn import svm
-from sklearn import cross_validation
+from sklearn import ensemble
+from sklearn import cross_validation as cv
 from sklearn.metrics import roc_curve, auc, precision_recall_curve
-from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
-from sklearn.feature_selection import VarianceThreshold
+from sklearn.multiclass import OneVsRestClassifier
 
 from matplotlib import pyplot as plt
 
@@ -32,9 +30,11 @@ from matplotlib import pyplot as plt
 
 FEATURE_SELECTION = False
 
-FOLD_CV = False
+FOLD_CV = True
 
-SPLIT_CV = True
+SPLIT_CV = False
+
+PLOT_RESULTS = False
 
 NORMALIZE = True
 
@@ -42,7 +42,6 @@ GLOBAL_K = 6
 
 
 # === Preprocessing ===
-
 
 def reverse(input_str):
     """ Simple reverse string """
@@ -53,11 +52,16 @@ def reverse(input_str):
 
 def cmpl_base_pair(x):
     """ Get complementary base pair """
-    if x == 'A': return 'T'
-    elif x == 'C': return 'G'
-    elif x == 'T': return 'A'
-    elif x == 'G': return 'C'
-    else: return 'N'
+    if x == 'A':
+        return 'T'
+    elif x == 'C':
+        return 'G'
+    elif x == 'T':
+        return 'A'
+    elif x == 'G':
+        return 'C'
+    else:
+        return 'N'
 
 
 def neg_strand(pos_strand):
@@ -69,7 +73,7 @@ def neg_strand(pos_strand):
 def gen_kmers(seq, k=GLOBAL_K):
     """ Returns generator for all kmers in given DNA sequence.
     May contain duplicates """
-    return (seq[i:i+k] for i in range(len(seq) - k + 1))
+    return (seq[i:i + k] for i in range(len(seq) - k + 1))
 
 
 def locfd(description):
@@ -91,38 +95,6 @@ def lfd(description):
     the region is enhanced is denoted by the 4th
     entry in the array """
     return lts(description.split("|")[3].strip())
-
-
-def get_locations_to_y_tIndex(locations):
-    """ mocations_to_y_tIndex is a dictionary that maps location
-    (eg. hindbrain) to  indices into the y_t vector. """
-
-    locations_to_y_tIndex = {
-        'forebrain': [],
-        'hindbrain': [],
-        'limb': [],
-        'rest': []
-    }
-
-    cutoff = (8 * len(locations)) / 10
-
-    index = 0
-    for (x, y) in locations[cutoff:]:
-        if len(y) > 0:
-            for location in y:
-                if "forebrain" in location:
-                    locations_to_y_tIndex['forebrain'].append(index)
-                if "hindbrain" in location:
-                    locations_to_y_tIndex['hindbrain'].append(index)
-                if "limb" in location:
-                    locations_to_y_tIndex['limb'].append(index)
-                if "forebrain" not in location and \
-                        "hindbrain" not in location and \
-                        "limb" not in location:
-                    if index not in locations_to_y_tIndex['rest']:
-                        locations_to_y_tIndex['rest'].append(index)
-        index += 1
-    return locations_to_y_tIndex
 
 
 """
@@ -157,65 +129,47 @@ def lftd_binary(description):
     return -1
 
 
-def iftl(tissue_label):
-    """ Returns int for tissue label """
-    if tissue_label == "brain": return 1
-    elif tissue_label == "limb": return 2
-    elif tissue_label == "neural": return 3
-    else: return 0
-
-
 def lftd(description):
-    """ converts descriptions to tissue labels.
-    Input is fasta descr. """
-    regex = "([^\[]+)\[(\d+)\/(\d+)\]"
-    ranks = []
+    """ converts descriptions to multi-label
+    tissue label.
+    Indices correspond to:
+        brain => 0
+        limb => 1
+        heart => 2
+        neural => 3
+    """
+    label = [0, 0]
     for raw in description.split("|")[4:]:
         line = raw.strip()
         if "brain" in line:
-            _, count, _ = re.match(regex, line).groups()
-            ranks.append(("brain", int(count)))
+            label[0] = 1
         if "limb" in line:
-            _, count, _ = re.match(regex, line).groups()
-            ranks.append(("limb", int(count)))
-        if "neural" in line:
-            _, count, _ = re.match(regex, line).groups()
-            ranks.append(("neural", int(count)))
-    if len(ranks) == 0:
-        return 0
-    else:
-        label, score = max(ranks, key=lambda x: x[1])
-        return iftl(label)
-
-
-def ifbd(brain_label):
-    if brain_label == "fore": return 1
-    elif brain_label == "mid": return 2
-    elif brain_label == "hind": return 3
-    return 0
+            label[1] = 1
+        # if "heart" in line:
+        #     label[2] = 1
+        # if "neural" in line:
+        #     label[3] = 1
+    return label
 
 
 def lfbd(description):
-    """ converts descriptions to brain labels.
-    Input is fasta descr """
-    regex = "([^\[]+)\[(\d+)\/(\d+)\]"
-    ranks = []
-    for raw in descriptions.split("|")[4:]:
+    """ converts descriptions to multi-label
+    brain label.
+    Indices in label correspond to:
+        1 => "forebrain"
+        2 => "midbrain"
+        3 => "hindbrain"
+    """
+    label = [0, 0, 0]
+    for raw in description.split("|")[4:]:
         line = raw.strip()
         if "midbrain" in line:
-            _, count, _ = re.match(regex, line).groups()
-            ranks.append(("mid", int(count)))
+            label[0] = 1
         if "forebrain" in line:
-            _, count, _ = re.match(regex, line).groups()
-            ranks.append(("fore", int(count)))
+            label[1] = 1
         if "hindbrain" in line:
-            _, count, _ = re.match(regex, line).groups()
-            ranks.append(("hind", int(count)))
-    if len(ranks) == 0:
-        return 0
-    else:
-        label, score = max(ranks, key=lambda x: x[1])
-        return ifbd(label)
+            label[2] = 1
+    return label
 
 
 def parse_fa(path, label):
@@ -228,7 +182,7 @@ def parse_fa(path, label):
     _labels = []
 
     for entry in human_fasta_seq:
-        seqs.append(str(entry.seq).lower())
+        seqs.append(str(entry.seq).replace("n", "").lower())
         _labels.append(float(label))
 
     _labels = np.array(_labels)
@@ -264,8 +218,8 @@ def parse_fa_fine_grain(path):
     _labels = []
 
     for entry in human_fasta_seq:
-        seqs.append(str(entry.seq).lower())
-        _labels.append(lfbd(entry))
+        seqs.append(str(entry.seq).replace("n", "").lower())
+        _labels.append(lfbd(entry.description))
 
     _labels = np.array(_labels)
     return (seqs, _labels)
@@ -317,27 +271,26 @@ def get_kmers_index_lookup():
 
 def get_XY(examples, labels, kmer_index):
     X = np.vstack([get_kmer_counts(x, kmer_index) for x in examples])
-    y = np.array(labels)
+    y = np.array(labels, dtype=np.int32)
     print "train. matrix dims (X): ", X.shape
     print "num labels (y): ", len(y)
-    print "+ ", len(np.where(y == 1)[0])
-    print "- ", len(np.where(y == -1)[0])
+    if len(labels.shape) == 1:
+        print "+ ", len(np.where(y == 1)[0])
+        print "- ", len(np.where(y == -1)[0])
     print "------------------------------------"
     return (X, y)
 
 
-def get_TAAT_core_col(examples):
-    all_seqs = [x[1] for x in examples]
+def get_taat_col(examples):
     regex = "^([atgc])+(taat)([atcg])+$"
     expr = lambda x: 1.0 if re.match(regex, x) else 0.0
-    return np.array(map(expr, all_seqs)).reshape(len(all_seqs), 1)
+    return np.array(map(expr, examples)).reshape(len(examples), 1)
 
 
-def get_Ebox_col(examples):
-    all_seqs = [x[1] for x in examples]
+def get_ebox_col(examples):
     regex = "ca[atcg]{2}tg"
     expr = lambda x: 1.0 if re.search(regex, x) else 0.0
-    return np.array(map(expr, all_seqs)).reshape(len(all_seqs), 1)
+    return np.array(map(expr, examples)).reshape(len(examples), 1)
 
 
 # === Prediction ===
@@ -399,32 +352,33 @@ def plot_roc(y_test, y_score):
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.title('ROC, Kmer counts used to predict general enhancer functionality')
+
     plt.legend(loc="lower right")
     # plt.show()
     plt.savefig("roc-curve.png")
 
 
-def print_usage_and_exit():
-    print "Usage: enhancer_clf.py pos.fa neg.fa <prediction_type>"
-    print "First two args are paths to datasets"
-    print "[Optional] third arg is one of <enhancer|tissue|fine-grain>"
-    print "enhancer predicts general enhancer activity"
-    print "tissue predicts limb/brain/heart"
-    print "fine-grain predicts forebrain/hindbrain"
-
-
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print_usage_and_exit()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("pos_exs", help="path to pos examples")
+    parser.add_argument("neg_exs", help="path to neg examples", default=None)
+    parser.add_argument("--pred_type", help="""
+        One of <enhancer|tissue|fine-grain>
+        enhancer predicts general enhancer activity.
+        tissue predicts limb/brain/heart/neural.
+        fine-grain predicts fore/mid/hind.
+        Defaults to enhancer.
+    """, default="enhancer")
+    args = parser.parse_args()
 
-    pos_dataset = sys.argv[1]
-    neg_dataset = sys.argv[2]
-    prediction_type = sys.argv[3] if len(sys.argv) > 3 else "enhancer"
+    pos_dataset = args.pos_exs
+    neg_dataset = args.neg_exs
+    prediction_type = args.pred_type
 
     if prediction_type == "enhancer":
         pos_seq, pos_labels = parse_fa(pos_dataset, 1)
         neg_seq, neg_labels = parse_fa(neg_dataset, -1)
-        examples, labels = pos_seq + neg_seq
+        examples = pos_seq + neg_seq
         labels = pos_labels + neg_labels
     elif prediction_type == "tissue":
         examples, labels = parse_fa_tissue(pos_dataset)
@@ -446,15 +400,7 @@ if __name__ == "__main__":
     # taat_col = get_taat_col(examples)
     # X = np.hstack((X, ebox_col, taat_col))
 
-    # Determine classifier. SVM for binary,
-    # Random Forest for multi-class
-    clf = None
-#    if prediction_type == "enhancer":
-        #clf = svm.SVC(kernel='linear')
-    #else:
-        #clf = ensemble.RandomForestClassifier(n_estimators=10)
-    # clf = svm.SVC(kernel='rbf')
-    clf = ensemble.RandomForestClassifier(n_estimators=10) 
+    clf = svm.SVC(kernel='rbf')
 
     if FEATURE_SELECTION:
         print "Feature selecting top 10 features"
@@ -466,9 +412,9 @@ if __name__ == "__main__":
 
     if FOLD_CV:
         print "Performing 5-fold cv"
-        # if prediction_type != "enhancer":
-        #     svc = clf
-        #     clf = OneVsRestClassifier(svc)
+        if prediction_type != "enhancer":
+            svc = clf
+            clf = OneVsRestClassifier(svc)
         scores = cv.cross_val_score(
             clf, X, y, cv=5, scoring="roc_auc"
         )
@@ -476,17 +422,18 @@ if __name__ == "__main__":
 
     if SPLIT_CV:
         print "Performing train/test split cv"
-        X_train, X_test, y_train, y_test = cross_validation.train_test_split(
-            X, y, test_size=0.3, random_state=0)
+        X_train, X_test, y_train, y_test = cv.train_test_split(
+            X, y, test_size=0.3, random_state=0
+        )
         clf.fit(X_train, y_train)
         clf.score(X_test, y_test)
 
-        # transform labels from [-1,1] to [0,1]
-        _y_test = label_binarize(y_test, classes=[-1, 1])
-        y_scores = clf.decision_function(X_test)
+        if PLOT_RESULTS:
+            print "Plotting results"
+            # transform labels from [-1,1] to [0,1]
+            _y_test = label_binarize(y_test, classes=[-1, 1])
+            y_scores = clf.decision_function(X_test)
 
-        print "Plotting results"
-        plot_roc(_y_test, y_scores)
-        plot_precision_recall(_y_test, y_scores)
-        plot_2d_results(X_test, y_test, clf.predict(X_test))
-
+            plot_roc(_y_test, y_scores)
+            plot_precision_recall(_y_test, y_scores)
+            plot_2d_results(X_test, y_test, clf.predict(X_test))

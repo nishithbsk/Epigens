@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 """
 Given a bedfile of positive examples, generates
 a "<name>-pos.fa" and "<name>-neg.fa" files for
@@ -15,26 +13,30 @@ another, though the chances are small as they are allowed
 to be shuffled across the entire genome.
 """
 
+import os
 import sys
 import tempfile
 import pybedtools
 
 
-def gen_neg_seqs(bedfilename, shuffledfilename):
+def gen_neg_seqs(argv):
     """ Given a fatsa sequence, shuffles sequence around the genome
     and outputs the shuffled bedtools. """
+    bedfilename = argv[0]
+    shuffledfilename = argv[1]
     bt = pybedtools.BedTool(bedfilename)
-    tempf = tempfile.NamedTemporaryFile()
+    tempf = open("temp.bed", "wb")
     tempf.write(str(bt))
+    tempf.close()
     if len(argv) > 2:
         genome = argv[2]
     else:
         genome = 'hg19'
     shuffled = bt.shuffle(genome=genome, excl=tempf.name)
-    tempf.close()
+    os.remove("temp.bed")
 
     out = open(shuffledfilename, "w")
-    out.write(shuffled)
+    out.write(str(shuffled))
     out.close()
 
 

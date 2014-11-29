@@ -14,7 +14,10 @@ import pybedtools
 from Bio import SeqIO
 from sklearn import svm
 from sklearn import cross_validation
-from sklearn.metrics import roc_curve, auc, precision_recall_curve
+from sklearn.metrics import roc_curve
+from sklearn.metrics import auc
+from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import roc_auc_score
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import normalize
@@ -91,6 +94,34 @@ def extract_extra_features_2(seq):
     by Kristin. """
     extra_features = []
 
+    seq_to_bed(seq)
+
+    seqFile = pybedtools.BedTool('seq.bed')
+
+    TF_binding_sites = pybedtools.BedTool('TF_binding_sites.bed')
+
+    TF_binding_sites.intersect(seqFile, output='intersection_2.bed')
+
+    intersectionFile = open('intersection_2.bed', 'r')
+    intersections = intersectionFile.readlines()
+
+    TFDictionary = {'P300' : 0, 'TCF' : 0, 'TBF' : 0}
+    for intersection in intersections:
+        intersection = intersection.split("\t")
+        TF = intersection[3]
+
+        if('P300' in TF):
+            TFDictionary['P300'] = 1
+        elif('TCF' in TF):
+            TFDictionary['TCF'] = 1
+        elif('TBF' in TF):
+            TFDictionary['TBF'] = 1
+
+    extra_features = TFDictionary.values()
+
+    os.remove('seq.bed')
+    os.remove('intersection_2.bed')
+
     return extra_features
 
 def extract_extra_features_1(seq):
@@ -106,9 +137,9 @@ def extract_extra_features_1(seq):
     # We could just pass the body part with the function
     mnemonicsFile = pybedtools.BedTool('../data/bed/heart_mnemonics.bed')
 
-    mnemonicsFile.intersect(seqFile, output='intersection.bed')
+    mnemonicsFile.intersect(seqFile, output='intersection_1.bed')
 
-    intersectionFile = open('intersection.bed', 'r')
+    intersectionFile = open('intersection_1.bed', 'r')
     intersections = intersectionFile.readlines()
 
     statesDictionary = {'Enh' : 0, 'EnhG' : 0, 'Het' : 0, 'TxWk' : 0}
@@ -126,9 +157,9 @@ def extract_extra_features_1(seq):
             statesDictionary['TxWk'] = 1
 
     extra_features = statesDictionary.values()
-        
+
     os.remove('seq.bed')
-    os.remove('intersection.bed')
+    os.remove('intersection_1.bed')
 
     return extra_features
 
@@ -407,6 +438,12 @@ def plot_roc(y_test, y_score):
     plt.legend(loc="lower right")
     # plt.show()
     plt.savefig("roc-curve.png")
+
+
+def au_roc(y_true, y_score):
+    """ Given the true labels, in this case test labels,
+    and a list of classifier scores, calculates the roc """
+    return roc_auc_score(y_true, y_score)
 
 
 # feature vector index :=> kmer string
