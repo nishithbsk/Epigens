@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import itertools
 import pdb
+import os
 import re
 import pybedtools
 
@@ -77,9 +78,45 @@ def extract_extra_features(seq):
     by Kristin. """
     extra_features = []
 
-    description = seq[0]
+    description = seq[0].split("|")[1]
+    chromName = description.split(":")[0]
 
+    chromRange = description.split(":")[1]
+    chromStart = chromRange.split("-")[0]
+    chromEnd = chromRange.split("-")[1]
 
+    bedLine = [chromName, chromStart, chromEnd]
+    bedLine = '\t'.join(bedLine)
+
+    with open('seq.bed', 'w') as writefile:
+        writefile.write(bedLine)
+
+    seqFile = pybedtools.BedTool('seq.bed')
+    mnemonicsFile = pybedtools.BedTool('../data/bed/heart_mnemonics.bed')
+
+    mnemonicsFile.intersect(seqFile, output='intersection.bed')
+
+    intersectionFile = open('intersection.bed', 'r')
+    intersections = intersectionFile.readlines()
+
+    statesDictionary = {'Enh' : 0, 'EnhG' : 0, 'Het' : 0, 'TxWk' : 0}
+    for intersection in intersections:
+        intersection = intersection.split("\t")
+        state = intersection[3]
+
+        if('Enh' in state):
+            statesDictionary['Enh'] = 1
+        elif('EnhG' in state):
+            statesDictionary['EnhG'] = 1
+        elif('Het' in state):
+            statesDictionary['Het'] = 1
+        elif('TxWk' in state):
+            statesDictionary['TxWk'] = 1
+
+    extra_features = statesDictionary.values()
+        
+    os.remove('seq.bed')
+    os.remove('intersection.bed')
 
     return extra_features
 
