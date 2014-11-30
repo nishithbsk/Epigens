@@ -14,7 +14,10 @@ import pybedtools
 from Bio import SeqIO
 from sklearn import svm
 from sklearn import cross_validation
-from sklearn.metrics import roc_curve, auc, precision_recall_curve
+from sklearn.metrics import roc_curve
+from sklearn.metrics import auc
+from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import roc_auc_score
 from sklearn.externals import joblib
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import normalize
@@ -118,7 +121,7 @@ def extract_extra_features_2(seq):
 
     os.remove('seq.bed')
     os.remove('intersection_2.bed')
-    
+
     return extra_features
 
 def extract_extra_features_1(seq):
@@ -154,7 +157,7 @@ def extract_extra_features_1(seq):
             statesDictionary['TxWk'] = 1
 
     extra_features = statesDictionary.values()
-        
+
     os.remove('seq.bed')
     os.remove('intersection_1.bed')
 
@@ -435,6 +438,12 @@ def plot_roc(y_test, y_score):
     plt.legend(loc="lower right")
     # plt.show()
     plt.savefig("roc-curve.png")
+
+
+def au_roc(y_true, y_score):
+    """ Given the true labels, in this case test labels,
+    and a list of classifier scores, calculates the roc """
+    return roc_auc_score(y_true, y_score)
 
 
 # feature vector index :=> kmer string
