@@ -2,11 +2,13 @@
 Feat. extraction for parts 1/2
 """
 import re
-import itertools
 import numpy as np
+import itertools
+import pybedtools
 from Bio import SeqIO
 
 GLOBAL_K = 6
+
 
 # === Part 1: Kmer classifiers ===
 
@@ -84,14 +86,14 @@ def parse_fa(path, label):
 
 
 def parse_fa_tissue(path, label_fn, filter_fn):
-    """ 
-    Given 
+    """
+    Given
         fasta file that represents positive labels
         label extracting fn given description
 
-    Returns 
+    Returns
         a pair of (sequence, label) numpy
-        arrays. Useful for constructing X/y for training 
+        arrays. Useful for constructing X/y for training
     """
     fasta_file = open(path)
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
@@ -110,14 +112,14 @@ def parse_fa_tissue(path, label_fn, filter_fn):
 
 
 def parse_fa_fine_grain(path, label_fn, filter_fn):
-    """ 
-    Given 
+    """
+    Given
         fasta file that represents positive labels
         label extracting fn given description
 
-    Returns 
+    Returns
         a pair of (sequence, label) numpy
-        arrays. Useful for constructing X/y for training 
+        arrays. Useful for constructing X/y for training
     """
     fasta_file = open(path)
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
@@ -215,32 +217,23 @@ def seq_to_bed(seq):
 
     bedLine = [chromName, chromStart, chromEnd]
     bedLine = '\t'.join(bedLine)
-
-    with open('seq.bed', 'w') as writefile:
-        writefile.write(bedLine)
+    return bedLine
 
 
-def extract_extra_features_2(seq):
+def extract_extra_features_2(seq, TF_name):
     """ Given single sequence, returns
     a list of additional features as listed
     by Kristin. """
     extra_features = []
 
-    seq_to_bed(seq)
-
-    seqFile = pybedtools.BedTool('seq.bed')
-
-    TF_binding_sites = pybedtools.BedTool('TF_binding_sites.bed')
-
-    TF_binding_sites.intersect(seqFile, output='intersection_2.bed')
-
-    intersectionFile = open('intersection_2.bed', 'r')
-    intersections = intersectionFile.readlines()
+    bedline = seq_to_bed(seq)
+    seqFile = pybedtools.BedTool(bedline, from_string=True)
+    TF_binding_sites = pybedtools.BedTool(TF_name)
+    intersections = TF_binding_sites.intersect(seqFile)
 
     TFDictionary = {'P300' : 0, 'TCF' : 0, 'TBF' : 0}
     for intersection in intersections:
-        intersection = intersection.split("\t")
-        TF = intersection[3]
+        TF = intersection.fields[-1]
 
         if('P300' in TF):
             TFDictionary['P300'] = 1
@@ -250,35 +243,22 @@ def extract_extra_features_2(seq):
             TFDictionary['TBF'] = 1
 
     extra_features = TFDictionary.values()
-
-    os.remove('seq.bed')
-    os.remove('intersection_2.bed')
-
-    return extra_features
+    return np.array(extra_features)
 
 
-def extract_extra_features_1(seq):
+def extract_extra_features_1(seq, heart):
     """ Given single sequence, returns
     a list of additional features as listed
     by Kristin. """
     extra_features = []
-
-    seq_to_bed(seq)
-
-    seqFile = pybedtools.BedTool('seq.bed')
-    # Can easily also get from other body parts
-    # We could just pass the body part with the function
-    mnemonicsFile = pybedtools.BedTool('../data/bed/heart_mnemonics.bed')
-
-    mnemonicsFile.intersect(seqFile, output='intersection_1.bed')
-
-    intersectionFile = open('intersection_1.bed', 'r')
-    intersections = intersectionFile.readlines()
+    bedline = seq_to_bed(seq)
+    seqFile = pybedtools.BedTool(bedline)
+    mnemonicsFile = pybedtools.BedTool('data/feature_bed/heart_mnemonics.bed')
+    intersections = mnemonicsFile.intersect(seqFile)
 
     statesDictionary = {'Enh' : 0, 'EnhG' : 0, 'Het' : 0, 'TxWk' : 0}
     for intersection in intersections:
-        intersection = intersection.split("\t")
-        state = intersection[3]
+        state = intersection.fields[-1]
 
         if('Enh' in state):
             statesDictionary['Enh'] = 1
@@ -290,8 +270,4 @@ def extract_extra_features_1(seq):
             statesDictionary['TxWk'] = 1
 
     extra_features = statesDictionary.values()
-
-    os.remove('seq.bed')
-    os.remove('intersection_1.bed')
-
-    return extra_features
+    return np.array(extra_features)

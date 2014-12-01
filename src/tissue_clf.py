@@ -1,13 +1,10 @@
 """
-Base script. Intended to be forked and modified.
+Given an annotated fasta file of enhancer tissues, 
+trains and evaluates classifier to distinguish selected
+tissues. 
 
-Given two files "pos.fa" and "neg.fa", does 5-fold
-cross validation to determine the auroc predicting
-positive from negative examples.
-
-Optionally writes the model to an "out" directory.
-
-Optionally plots precision/recall curves.
+Classifiers used are one-vs-one to distinguish btwn 
+two tissues, and one-vs-all for the rest.
 """
 
 # Imports for IPython
@@ -39,19 +36,16 @@ from matplotlib import pyplot as plt
 
 FEATURE_SELECTION = False
 
-FOLD_CV = True
+FOLD_CV = False
 
-PLOT_RESULTS = False
+PLOT_RESULTS = not FOLD_CV
 
 NORMALIZE = True
 
 GLOBAL_K = 6
 
 
-# ==========================================================
-
-
-tissues = ["limb", "heart"]
+tissues = ["limb", "brain"]
 
 
 def filter_fn(d):
@@ -63,6 +57,8 @@ def filter_fn(d):
 
 
 def one_v_all(d):
+    """ converts description to a multilabel
+    np array to use in a one-v-all classifier """
     label = [0, 0, 0, 0]
     for raw in d.split("|")[4:]:
         line = raw.strip()
@@ -78,22 +74,25 @@ def one_v_all(d):
 
 
 def one_v_one(d):
+    """ Treats the first two entries in brain-parts
+    as the labels for a one-v-one clf """
     for raw in d.split("|")[4:]:
         if tissues[0] in raw:
             return 1
         elif tissues[1] in raw:
             return -1
-        else:
-            raise Exception("Shouldn't have more than two classes here")
+    raise Exception("Shouldn't have more than two classes here")
 
 
+import time
 if __name__ == "__main__":
+    start = time.clock()
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
     args = parser.parse_args()
 
     pos_dataset = args.pos_exs
-    examples, labels = parse_fa_tissue(pos_dataset, one_v_all, filter_fn)
+    examples, labels = parse_fa_tissue(pos_dataset, one_v_one, filter_fn)
 
     # feature vector index :=> kmer string
     kmers_index = get_kmers_index_lookup()
@@ -135,7 +134,10 @@ if __name__ == "__main__":
         print "Plotting results"
         y_scores = clf.decision_function(X_test)
         plot_roc(y_test, y_scores, "ROC Tissue", 
-            out="figures/roc-curve-tis.png")
+            out="figures/roc-curve-tis-limb-v-brain.png")
         # plot_precision_recall(y_true, y_scores)
         # plot_2d_results(X_test, y_test, clf.predict(X_test))
         print "Done plotting"
+
+    end = time.clock()
+    print "time taken : %fs" % (end - start)
