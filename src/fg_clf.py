@@ -37,9 +37,11 @@ from sklearn.feature_selection import chi2
 
 from matplotlib import pyplot as plt
 
-FEATURE_SELECTION = True
+FEATURE_SELECTION = False
 
 FOLD_CV = False
+
+SPLIT_CV = True
 
 PLOT_RESULTS = True
 
@@ -47,21 +49,36 @@ NORMALIZE = True
 
 GLOBAL_K = 6
 
-import time
+
+def fg_label_fn(d):
+    """ converts descriptions to multi-label
+    brain label.
+    Indices in label correspond to:
+        1 => "forebrain"
+        2 => "midbrain"
+        3 => "hindbrain"
+    """
+    label = [0, 0, 0]
+    for raw in description.split("|")[4:]:
+        line = raw.strip()
+        if "midbrain" in line:
+            label[0] = 1
+        if "forebrain" in line:
+            label[1] = 1
+        if "hindbrain" in line:
+            label[2] = 1
+    return label
+
+
 if __name__ == "__main__":
-    start = time.clock()
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
-    parser.add_argument("neg_exs", help="path to neg examples")
-    args = parser.parse_args()
+    parser.add_argument("neg_exs", help="path to neg examples", default=None)
 
     pos_dataset = args.pos_exs
     neg_dataset = args.neg_exs
 
-    pos_seq, pos_labels = parse_fa(pos_dataset, 1)
-    neg_seq, neg_labels = parse_fa(neg_dataset, -1)
-    examples = np.concatenate((pos_seq, neg_seq))
-    labels = np.concatenate((pos_labels, neg_labels))
+    examples, labels = parse_fa_fine_grain(pos_dataset, fg_label_fn)
 
     # feature vector index :=> kmer string
     kmers_index = get_kmers_index_lookup()
@@ -78,35 +95,43 @@ if __name__ == "__main__":
     taat_col = get_taat_col(examples)
     X = np.hstack((X, taat_col))
 
-    clf = svm.SVC(kernel='rbf')
+    clf = None
+    if prediction_type != "enhancer":
+        svc = svm.SVC(kernel='rbf')
+        clf = OneVsRestClassifier(svc)
+    else:
+        clf = svm.SVC(kernel='rbf')
 
     if FEATURE_SELECTION:
         print "Feature selecting top 10 features"
         # Remove low-variance features
         # K-best features
-        X = SelectKBest(chi2, k=600).fit_transform(X, y)
+        X = SelectKBest(chi2, k=10).fit_transform(X, y)
 
     if FOLD_CV:
         print "Performing 5-fold cv"
         scores = cv.cross_val_score(
-            clf, Xt, y, cv=5, scoring="roc_auc"
+            clf, X, y, cv=5, scoring="roc_auc"
         )
         print "%d-fold cv, average auRoc %f" % (len(scores), scores.mean())
 
-    if PLOT_RESULTS:
+    if SPLIT_CV:
         print "Performing train/test split cv"
         X_train, X_test, y_train, y_test = cv.train_test_split(
             X, y, test_size=0.3, random_state=0
         )
         clf.fit(X_train, y_train)
 
-        print "Plotting results"
-        y_scores = clf.decision_function(X_test)
-        plot_roc(y_test, y_scores, "ROC Enhancer", 
-            out="figures/roc-curve-enh-fsel.png")
-        # plot_precision_recall(y_true, y_scores)
-        # plot_2d_results(X_test, y_test, clf.predict(X_test))
-        print "Done plotting"
-    
-    end = time.clock()
-    print "time taken : %fs" % (end - start)
+        if PLOT_RESULTS:
+            print "Plotting results"
+            # transform labels from [-1,1] to [0,1]
+            if prediction_type == "enhancer":
+                y_true = label_binarize(y_test, classes=[-1, 1])
+            else:
+                y_true = y_test
+
+            y_scores = clf.decision_function(X_test)
+
+            plot_roc(y_true, y_scores, prediction_type)
+            # plot_precision_recall(y_true, y_scores)
+            # plot_2d_results(X_test, y_test, clf.predict(X_test))
