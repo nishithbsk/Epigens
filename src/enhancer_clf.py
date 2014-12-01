@@ -135,6 +135,27 @@ Dist:
     other => 596
 """
 
+def lftd_binary(description):
+    """ converts descriptions to multi-label
+    tissue label.
+    Indices correspond to:
+        brain => 0
+        limb => 1
+        heart => 2
+        neural => 3
+    """
+    for raw in description.split("|")[4:]:
+        line = raw.strip()
+        # if "brain" in line:
+        #     return 1
+        if "limb" in line:
+            return 1
+        # if "heart" in line:
+        #     return 1
+        # if "neural" in line:
+        #     return 1
+    return -1
+
 
 def iftl(tissue_label):
     """ Returns int for tissue label """
@@ -210,6 +231,7 @@ def parse_fa(path, label):
         seqs.append(str(entry.seq).lower())
         _labels.append(float(label))
 
+    _labels = np.array(_labels)
     return (seqs, _labels)
 
 
@@ -224,9 +246,11 @@ def parse_fa_tissue(path):
     _labels = []
 
     for entry in human_fasta_seq:
-        seqs.append(str(entry.seq).lower())
-        _labels.append(lftd(entry))
+        seqs.append(str(entry.seq).replace("n", "").lower())
+        # _labels.append(lftd_binary(entry.description))
+        _labels.append(lftd(entry.description))
 
+    _labels = np.array(_labels)
     return (seqs, _labels)
 
 
@@ -243,6 +267,7 @@ def parse_fa_fine_grain(path):
         seqs.append(str(entry.seq).lower())
         _labels.append(lfbd(entry))
 
+    _labels = np.array(_labels)
     return (seqs, _labels)
 
 
@@ -417,11 +442,19 @@ if __name__ == "__main__":
         X = normalize(X, axis=1, norm='l1')
 
     # Add e-box and taat core cols
-    ebox_col = get_Ebox_col(examples)
-    taat_col = get_TAAT_core_col(examples)
-    X = np.hstack((X,ebox_col, taat_col))
+    # ebox_col = get_ebox_col(examples)
+    # taat_col = get_taat_col(examples)
+    # X = np.hstack((X, ebox_col, taat_col))
 
-    clf = svm.SVC(kernel='rbf', C=1)
+    # Determine classifier. SVM for binary,
+    # Random Forest for multi-class
+    clf = None
+#    if prediction_type == "enhancer":
+        #clf = svm.SVC(kernel='linear')
+    #else:
+        #clf = ensemble.RandomForestClassifier(n_estimators=10)
+    # clf = svm.SVC(kernel='rbf')
+    clf = ensemble.RandomForestClassifier(n_estimators=10) 
 
     if FEATURE_SELECTION:
         print "Feature selecting top 10 features"
@@ -433,8 +466,13 @@ if __name__ == "__main__":
 
     if FOLD_CV:
         print "Performing 5-fold cv"
-        scores = cross_validation.cross_val_score(clf, X_train, y_train, cv=5)
-        print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
+        # if prediction_type != "enhancer":
+        #     svc = clf
+        #     clf = OneVsRestClassifier(svc)
+        scores = cv.cross_val_score(
+            clf, X, y, cv=5, scoring="roc_auc"
+        )
+        print "%d-fold cv, average auRoc %f" % (len(scores), scores.mean())
 
     if SPLIT_CV:
         print "Performing train/test split cv"
