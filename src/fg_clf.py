@@ -1,13 +1,10 @@
 """
-Base script. Intended to be forked and modified.
+Given an annotated fasta file of brain enhancer sequences,
+trains and evaluates a classifier to distinguish among
+different locations of the brain. 
 
-Given two files "pos.fa" and "neg.fa", does 5-fold
-cross validation to determine the auroc predicting
-positive from negative examples.
-
-Optionally writes the model to an "out" directory.
-
-Optionally plots precision/recall curves.
+Classifiers used are one-vs-one to distinguish btwn 
+two tissues, and one-vs-all for the rest.
 """
 
 # Imports for IPython
@@ -41,16 +38,37 @@ FEATURE_SELECTION = False
 
 FOLD_CV = False
 
-SPLIT_CV = True
-
-PLOT_RESULTS = True
+PLOT_RESULTS = not FOLD_CV
 
 NORMALIZE = True
 
 GLOBAL_K = 6
 
 
-def fg_label_fn(d):
+brain_parts = ["forebrain", "midbrain", "hindbrain"]
+
+
+def filter_seq(d):
+    """ Filters sequences by certain brain parts """
+    for raw in description.split("|")[4:]:
+        for part in brain_parts:
+            if part in raw:
+                return True
+    return False
+
+
+def one_v_one(d):
+    """ Treats the first two entries in brain-parts
+    as the labels for a one-v-one clf """
+    for raw in d.split("|")[4:]:
+        if brain_parts[0] in raw:
+            return 1
+        elif brain_parts[1] in raw:
+            return -1
+    raise Exception("Shouldn't have more than two classes here")
+
+
+def one_v_all(d):
     """ converts descriptions to multi-label
     brain label.
     Indices in label correspond to:
@@ -70,6 +88,7 @@ def fg_label_fn(d):
     return label
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
@@ -78,7 +97,7 @@ if __name__ == "__main__":
     pos_dataset = args.pos_exs
     neg_dataset = args.neg_exs
 
-    examples, labels = parse_fa_fine_grain(pos_dataset, fg_label_fn)
+    examples, labels = parse_fa_fine_grain(pos_dataset, fg_label_fn, filter_seq)
 
     # feature vector index :=> kmer string
     kmers_index = get_kmers_index_lookup()
