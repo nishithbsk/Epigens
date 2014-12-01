@@ -26,7 +26,7 @@ def plot_2d_results(X, y, preds):
 
     # Plot mispredictions
     plt.figure()
-    diff = np.array([1 if y_test[i] == preds[i] else 0 for i in range(len(y_test))])
+    diff = np.array([1 if y_true[i] == preds[i] else 0 for i in range(len(y_true))])
     cs = "rg"
     cats = [0, 1]
     target_names = ["incorrect", "correct"]
@@ -38,40 +38,46 @@ def plot_2d_results(X, y, preds):
     plt.savefig("figures/residual-scatter.png")
 
 
-def plot_precision_recall(y_test, y_scores):
-    precision, recall, thresholds = precision_recall_curve(y_test, y_scores)
+def plot_precision_recall(y_true, y_scores):
+    precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
     plt.figure()
     plt.plot(recall, precision, 'g-')
     plt.title("Precision-Recall Curve")
     plt.savefig("figures/pr-curve.png")
 
 
-def plot_roc(y_test, y_score, prediction_type):
+def plot_roc(y_true, y_score, title, out="figures/roc-curve.png"):
     fpr = dict()
     tpr = dict()
     roc_auc = dict()
+
+    is_1d = len(y_true.shape) == 1
+
     # Plot a curve for each label
-    n_examples, n_labels = y_test.shape
-    if n_labels == None:
-        n_labels = 1
-    for i in range(n_labels):
-        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
+    if is_1d: 
+        fpr[0], tpr[0], _ = roc_curve(y_true, y_score)
+        roc_auc[0] = auc(fpr[0], tpr[0])
+    else:
+        for i in range(y_true.shape[1]):
+            fpr[i], tpr[i], _ = roc_curve(y_true[:, i], y_score[:, i])
+            roc_auc[i] = auc(fpr[i], tpr[i])
+
     # Compute micro-average ROC curve and ROC area
-    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_true.ravel(), y_score.ravel())
     roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
     # Plot of a ROC curve for a specific class
-    for i in range(n_labels):
-        plt.figure()
-        plt.plot(fpr[i], tpr[i], label='ROC curve (area = %0.2f)' % roc_auc[i])
-        plt.plot([0, 1], [0, 1], 'k--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('ROC, %s' % prediction_type)
+    for i in fpr.keys(): 
+        if i != "micro":
+            plt.figure()
+            plt.plot(fpr[i], tpr[i], label='ROC curve (area = %0.2f)' % roc_auc[i])
+            plt.plot([0, 1], [0, 1], 'k--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title(title)
 
     plt.legend(loc="lower right")
     # plt.show()
-    plt.savefig("roc-curve.png")
+    plt.savefig(out)
 

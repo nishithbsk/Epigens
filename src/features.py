@@ -6,6 +6,7 @@ import itertools
 import numpy as np
 from Bio import SeqIO
 
+GLOBAL_K = 6
 
 # === Part 1: Kmer classifiers ===
 
@@ -77,11 +78,12 @@ def parse_fa(path, label):
         seqs.append(str(entry.seq).replace("n", "").lower())
         _labels.append(float(label))
 
+    seqs = np.array(seqs)
     _labels = np.array(_labels)
     return (seqs, _labels)
 
 
-def parse_fa_tissue(path, label_fn):
+def parse_fa_tissue(path, label_fn, filter_fn):
     """ 
     Given 
         fasta file that represents positive labels
@@ -98,14 +100,16 @@ def parse_fa_tissue(path, label_fn):
     _labels = []
 
     for entry in human_fasta_seq:
-        seqs.append(str(entry.seq).replace("n", "").lower())
-        _labels.append(label_fn(entry.description))
+        if filter_fn(entry.description):
+            seqs.append(str(entry.seq).replace("n", "").lower())
+            _labels.append(label_fn(entry.description))
 
+    seqs = np.array(seqs)
     _labels = np.array(_labels)
     return (seqs, _labels)
 
 
-def parse_fa_fine_grain(path, label_fn):
+def parse_fa_fine_grain(path, label_fn, filter_fn):
     """ 
     Given 
         fasta file that represents positive labels
@@ -121,9 +125,11 @@ def parse_fa_fine_grain(path, label_fn):
     _labels = []
 
     for entry in human_fasta_seq:
-        seqs.append(str(entry.seq).replace("n", "").lower())
-        _labels.append(label_fn(entry.description))
+        if filter_fn(entry.description):
+            seqs.append(str(entry.seq).replace("n", "").lower())
+            _labels.append(label_fn(entry.description))
 
+    seqs = np.array(seqs)
     _labels = np.array(_labels)
     return (seqs, _labels)
 
