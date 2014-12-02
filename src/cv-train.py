@@ -29,9 +29,9 @@ from matplotlib import pyplot as plt
 
 # === Config ===
 
-USE_BEER_DATASET = False
+USE_BEER_DATASET = True
 
-USE_VISTA_DATASET = True
+USE_VISTA_DATASET = False
 
 SHOULD_SPLIT = True
 
@@ -51,9 +51,9 @@ FASTA_HUMAN_SRC = "../data/fasta/human_regions.fasta"
 
 TRAIN_DATA_DST = "out/%s.train"
 
-POS_DATASET = "data/fasta/enh_fb.fa"
+POS_DATASET = "../data/fasta/enh_mb.fa"
 
-NEG_DATASET = "data/fasta/random4000.fa"
+NEG_DATASET = "../data/fasta/random12000.fa"
 
 GLOBAL_K = 6
 
@@ -490,7 +490,7 @@ if USE_BEER_DATASET:
         _y_test = label_binarize(y_test, classes=[-1, 1])
         y_scores = clf.decision_function(X_test)
 
-        scores = cross_validation.cross_val_score(clf, X_train, y_train, cv=5)
+        scores = cross_validation.cross_val_score(clf, X_train, y_train, cv=5, scoring='roc_auc')
         print "%d-fold cv, average accuracy %f" % (len(scores), scores.mean())
 
 
