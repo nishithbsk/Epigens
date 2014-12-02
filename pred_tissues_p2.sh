@@ -1,9 +1,9 @@
 #!/bin/bash
 
 POS="data/fasta/hm_annotated.fa"
-HEART="data/feature_bed/heart_mnemonics.bed"
-LIVER="data/feature_bed/limb_mnemonics.bed"
-BRAIN="data/feature_bed/brain_mnemonics.bed"
+HEART="data/out/heart.txt"
+LIVER="data/out/limbs.bed"
+BRAIN="data/out/brain.bed"
 
 echo "Predicting tissues (limb|brain|heart|neural|other)"
 echo "Using $POS"
