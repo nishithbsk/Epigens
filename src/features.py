@@ -2,6 +2,7 @@
 Feat. extraction for parts 1/2
 """
 import re
+import pdb
 import numpy as np
 import itertools
 import pybedtools
@@ -70,22 +71,32 @@ def lfd(description):
     return lts(description.split("|")[3].strip())
 
 
+def extract_bed(description):
+    return description.split()[1].strip() \
+        .replace("range=", "") \
+        .replace(":", "\t") \
+        .replace("-", "\t")
+
+
 def parse_fa(path, label):
     """ Given a fasta file that represents a label
-    class, returns a pair of (sequence, label) numpy
+    class, returns sequence, label, and aux numpy
     arrays. Useful for constructing X/y for training """
     fasta_file = open(path)
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
     seqs = []
-    _labels = []
+    labels = []
+    beds = []
 
     for entry in human_fasta_seq:
         seqs.append(str(entry.seq).replace("n", "").lower())
-        _labels.append(float(label))
+        labels.append(float(label))
+        beds.append(extract_bed(entry.description))
 
     seqs = np.array(seqs)
-    _labels = np.array(_labels)
-    return (seqs, _labels)
+    labels = np.array(labels)
+    beds = np.array(beds)
+    return (seqs, labels, beds)
 
 
 def parse_fa_tissue(path, label_fn, filter_fn):
@@ -102,16 +113,19 @@ def parse_fa_tissue(path, label_fn, filter_fn):
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
 
     seqs = []
-    _labels = []
+    labels = []
+    descriptions = []
 
     for entry in human_fasta_seq:
         if filter_fn(entry.description):
             seqs.append(str(entry.seq).replace("n", "").lower())
-            _labels.append(label_fn(entry.description))
+            labels.append(label_fn(entry.description))
+            descriptions.append(entry.description)
 
     seqs = np.array(seqs)
-    _labels = np.array(_labels)
-    return (seqs, _labels)
+    labels = np.array(labels)
+    descriptions = np.array(descriptions)
+    return (seqs, labels, descriptions)
 
 
 def parse_fa_fine_grain(path, label_fn, filter_fn):
@@ -127,16 +141,19 @@ def parse_fa_fine_grain(path, label_fn, filter_fn):
     fasta_file = open(path)
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
     seqs = []
-    _labels = []
+    labels = []
+    descriptions = []
 
     for entry in human_fasta_seq:
         if filter_fn(entry.description):
             seqs.append(str(entry.seq).replace("n", "").lower())
-            _labels.append(label_fn(entry.description))
+            labels.append(label_fn(entry.description))
+            descriptions.append(entry.description)
 
     seqs = np.array(seqs)
-    _labels = np.array(_labels)
-    return (seqs, _labels)
+    labels = np.array(labels)
+    descriptions = np.array(descriptions)
+    return (seqs, labels, descriptions)
 
 
 def get_kmer_counts(seq, ref):
@@ -223,22 +240,26 @@ def seq_to_bed(seq):
     return bedLine
 
 
-def extract_extra_features_2(seq, TF_name):
-    """ Given single sequence, returns
-    a list of additional features as listed
-    by Kristin. """
+def extract_feat_enhancers(seq, TF_name, converted=False):
+    """ Given a bedtools line representinga sequence,
+    returns row of general enhancer features """
     global TF_binding_sites
 
     extra_features = []
 
-    bedline = seq_to_bed(seq)
+    if not converted:
+        bedline = seq_to_bed(seq)
+    else:
+        bedline = seq
+
     seqFile = pybedtools.BedTool(bedline, from_string=True)
     TF_binding_sites = pybedtools.BedTool(TF_name)
+
     intersections = TF_binding_sites.intersect(seqFile)
 
-    TFDictionary = {'P300' : 0, 'TCF' : 0, 'TBF' : 0}
+    TFDictionary = {'P300': 0, 'TCF': 0, 'TBF': 0}
     for intersection in intersections:
-        TF = intersection.fields[-1]
+        TF = intersection.name
 
         if('P300' in TF):
             TFDictionary['P300'] = 1
@@ -251,9 +272,9 @@ def extract_extra_features_2(seq, TF_name):
     return np.array(extra_features)
 
 
-def extract_extra_features_heart(seq, bedfile):
+def extract_feat_heart(seq, bedfile):
     """ Given single sequence labeled as heart
-    enhancing, returns a list of additional features """
+    enhancing, returns row of heart features """
     global heart_seqFile
 
     extra_features = []
@@ -266,7 +287,7 @@ def extract_extra_features_heart(seq, bedfile):
 
     statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
     for intersection in intersections:
-        state = intersection.fields[-1]
+        state = intersection.name
 
         if('Enh' in state):
             statesDictionary['Enh'] = 1
@@ -281,7 +302,7 @@ def extract_extra_features_heart(seq, bedfile):
     return np.array(extra_features)
 
 
-def extract_extra_features_limb(seq, bedfile):
+def extract_feat_limb(seq, bedfile):
     """ Given single sequence labeled as limb
     enhancing, returns a list of additional
     features """
@@ -297,7 +318,7 @@ def extract_extra_features_limb(seq, bedfile):
 
     statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
     for intersection in intersections:
-        state = intersection.fields[-1]
+        state = intersection.name
 
         if('Enh' in state):
             statesDictionary['Enh'] = 1
@@ -312,7 +333,7 @@ def extract_extra_features_limb(seq, bedfile):
     return np.array(extra_features)
 
 
-def extract_extra_features_brain(seq, bedfile):
+def extract_feat_brain(seq, bedfile):
     """ Given single sequence that's labeled with
     a part of the brain, returns a list of additional
     epigenetic features """
@@ -328,7 +349,7 @@ def extract_extra_features_brain(seq, bedfile):
 
     statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
     for intersection in intersections:
-        state = intersection.fields[-1]
+        state = intersection.name
 
         if('Enh' in state):
             statesDictionary['Enh'] = 1

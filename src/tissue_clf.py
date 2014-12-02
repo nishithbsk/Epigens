@@ -84,6 +84,10 @@ def one_v_one(d):
     raise Exception("Shouldn't have more than two classes here")
 
 
+def extract_seq(d):
+    return
+
+
 import time
 if __name__ == "__main__":
     start = time.clock()
@@ -95,7 +99,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     pos_dataset = args.pos_exs
-    examples, labels = parse_fa_tissue(pos_dataset, one_v_one, filter_fn)
+    heart_data = None
+    liver_data = None
+    brain_data = None
+
+    if hasattr(args, "heart_mnemonic"):
+        heart_data = args.heart_mnemonic
+    if hasattr(args, "liver_mnemonic"):
+        liver_data = args.liver_mnemonic
+    if hasattr(args, "brain_mnemonic"):
+        brain_data = args.brain_mnemonic
+
+    examples, labels, descriptions = parse_fa_tissue(
+        pos_dataset, one_v_one, filter_fn
+    )
 
     # feature vector index :=> kmer string
     kmers_index = get_kmers_index_lookup()
@@ -107,10 +124,18 @@ if __name__ == "__main__":
     if NORMALIZE:
         X = normalize(X, axis=1, norm='l1')
 
+    # Add extra features
+    if heart_data:
+        rows = [extract_extra_features_heart(extract_seq(d), heart_data)
+            for d in descriptions])
+        heart_X = np.concatenate(rows)
+
+
+
     # Add e-box and taat core cols
     # ebox_col = get_ebox_col(examples)
-    taat_col = get_taat_col(examples)
-    X = np.hstack((X, taat_col))
+    # taat_col = get_taat_col(examples)
+    # X = np.hstack((X, taat_col))
 
     clf = svm.SVC(kernel='linear')
     # clf = OneVsRestClassifier(svc)

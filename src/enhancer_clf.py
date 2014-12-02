@@ -52,15 +52,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
     parser.add_argument("neg_exs", help="path to neg examples")
+    parser.add_argument("--pos_tf", help="path to preprocessed intersection labels")
+    parser.add_argument("--neg_tf", help="path to preprocessed intersection labels")
     args = parser.parse_args()
 
     pos_dataset = args.pos_exs
     neg_dataset = args.neg_exs
+    pos_tf = args.pos_tf if hasattr(args, "pos_tf") else None
+    neg_Tf = args.neg_tf if hasattr(args, "neg_tf") else None
 
     pos_seq, pos_labels = parse_fa(pos_dataset, 1)
     neg_seq, neg_labels = parse_fa(neg_dataset, -1)
-    examples = np.concatenate((pos_seq, neg_seq))
+    pos_extra = np.load(pos_tf) if pos_tf else None
+    neg_extra = np.load(neg_tf) if neg_tf else None
+
+    # Vertically stack everything
+    examples = np.vstack((pos_seq, neg_seq))
     labels = np.concatenate((pos_labels, neg_labels))
+    extra_feats = np.vstack((pos_extra, neg_extra)) if pos_extra and neg_extra else None
 
     # feature vector index :=> kmer string
     kmers_index = get_kmers_index_lookup()
@@ -75,8 +84,8 @@ if __name__ == "__main__":
     # == Add extra features ==
 
     # Add Kristin's features
-    extra_features = np.array([extract_extra_features_1(seq, heart)
-        for seq in examples])
+    if extra_feats:
+        X = np.hstack((X, extra_feats))
 
     # Add e-box and taat core cols
     # ebox_col = get_ebox_col(examples)
