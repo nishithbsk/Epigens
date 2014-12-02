@@ -9,6 +9,9 @@ from Bio import SeqIO
 
 GLOBAL_K = 6
 
+brain_seqFile = None
+heart_seqFile = None
+limb_seqFile = None
 
 # === Part 1: Kmer classifiers ===
 
@@ -224,6 +227,8 @@ def extract_extra_features_2(seq, TF_name):
     """ Given single sequence, returns
     a list of additional features as listed
     by Kristin. """
+    global TF_binding_sites
+
     extra_features = []
 
     bedline = seq_to_bed(seq)
@@ -246,17 +251,82 @@ def extract_extra_features_2(seq, TF_name):
     return np.array(extra_features)
 
 
-def extract_extra_features_1(seq, heart):
-    """ Given single sequence, returns
-    a list of additional features as listed
-    by Kristin. """
+def extract_extra_features_heart(seq, bedfile):
+    """ Given single sequence labeled as heart
+    enhancing, returns a list of additional features """
+    global heart_seqFile
+
     extra_features = []
     bedline = seq_to_bed(seq)
-    seqFile = pybedtools.BedTool(bedline)
-    mnemonicsFile = pybedtools.BedTool('data/feature_bed/heart_mnemonics.bed')
+    if not heart_seqFile:
+        heart_seqFile = pybedtools.BedTool(bedline)
+    seqFile = heart_seqFile
+    mnemonicsFile = pybedtools.BedTool(bedfile)
     intersections = mnemonicsFile.intersect(seqFile)
 
-    statesDictionary = {'Enh' : 0, 'EnhG' : 0, 'Het' : 0, 'TxWk' : 0}
+    statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
+    for intersection in intersections:
+        state = intersection.fields[-1]
+
+        if('Enh' in state):
+            statesDictionary['Enh'] = 1
+        elif('EnhG' in state):
+            statesDictionary['EnhG'] = 1
+        elif('Het' in state):
+            statesDictionary['Het'] = 1
+        elif('TxWk' in state):
+            statesDictionary['TxWk'] = 1
+
+    extra_features = statesDictionary.values()
+    return np.array(extra_features)
+
+
+def extract_extra_features_limb(seq, bedfile):
+    """ Given single sequence labeled as limb
+    enhancing, returns a list of additional
+    features """
+    global limb_seqFile
+
+    extra_features = []
+    bedline = seq_to_bed(seq)
+    if not limb_seqFile:
+        limb_seqFile = pybedtools.BedTool(bedline)
+    seqFile = limb_seqFile
+    mnemonicsFile = pybedtools.BedTool(bedfile)
+    intersections = mnemonicsFile.intersect(seqFile)
+
+    statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
+    for intersection in intersections:
+        state = intersection.fields[-1]
+
+        if('Enh' in state):
+            statesDictionary['Enh'] = 1
+        elif('EnhG' in state):
+            statesDictionary['EnhG'] = 1
+        elif('Het' in state):
+            statesDictionary['Het'] = 1
+        elif('TxWk' in state):
+            statesDictionary['TxWk'] = 1
+
+    extra_features = statesDictionary.values()
+    return np.array(extra_features)
+
+
+def extract_extra_features_brain(seq, bedfile):
+    """ Given single sequence that's labeled with
+    a part of the brain, returns a list of additional
+    epigenetic features """
+    global brain_seqFile
+
+    extra_features = []
+    bedline = seq_to_bed(seq)
+    if not brain_seqFile:
+        brain_seqFile = pybedtools.BedTool(bedline)
+    seqFile = brain_seqFile
+    mnemonicsFile = pybedtools.BedTool(bedfile)
+    intersections = mnemonicsFile.intersect(seqFile)
+
+    statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
     for intersection in intersections:
         state = intersection.fields[-1]
 

@@ -11,7 +11,6 @@ Optionally plots precision/recall curves.
 """
 
 # Imports for IPython
-import re
 import pdb
 import itertools
 import argparse
@@ -73,10 +72,16 @@ if __name__ == "__main__":
     if NORMALIZE:
         X = normalize(X, axis=1, norm='l1')
 
+    # == Add extra features ==
+
+    # Add Kristin's features
+    extra_features = np.array([extract_extra_features_1(seq, heart)
+        for seq in examples])
+
     # Add e-box and taat core cols
     # ebox_col = get_ebox_col(examples)
-    taat_col = get_taat_col(examples)
-    X = np.hstack((X, taat_col))
+    # taat_col = get_taat_col(examples)
+    # X = np.hstack((X, taat_col))
 
     clf = svm.SVC(kernel='rbf')
 
@@ -89,7 +94,7 @@ if __name__ == "__main__":
     if FOLD_CV:
         print "Performing 5-fold cv"
         scores = cv.cross_val_score(
-            clf, Xt, y, cv=5, scoring="roc_auc"
+            clf, X, y, cv=5, scoring="roc_auc"
         )
         print "%d-fold cv, average auRoc %f" % (len(scores), scores.mean())
 
@@ -102,11 +107,11 @@ if __name__ == "__main__":
 
         print "Plotting results"
         y_scores = clf.decision_function(X_test)
-        plot_roc(y_test, y_scores, "ROC Enhancer", 
+        plot_roc(y_test, y_scores, "ROC Enhancer",
             out="figures/roc-curve-enh-fsel.png")
         # plot_precision_recall(y_true, y_scores)
         # plot_2d_results(X_test, y_test, clf.predict(X_test))
         print "Done plotting"
-    
+
     end = time.clock()
     print "time taken : %fs" % (end - start)

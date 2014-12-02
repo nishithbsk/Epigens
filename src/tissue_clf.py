@@ -89,6 +89,9 @@ if __name__ == "__main__":
     start = time.clock()
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
+    parser.add_argument("--heart_mnemonic", help="path to heart mnemonic")
+    parser.add_argument("--liver_mnemonic", help="path to liver mnemonic")
+    parser.add_argument("--brain_mnemonic", help="path to brain mnemonic")
     args = parser.parse_args()
 
     pos_dataset = args.pos_exs
