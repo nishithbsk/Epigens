@@ -1,9 +1,9 @@
 """
-Given an annotated fasta file of enhancer tissues, 
+Given an annotated fasta file of enhancer tissues,
 trains and evaluates classifier to distinguish selected
-tissues. 
+tissues.
 
-Classifiers used are one-vs-one to distinguish btwn 
+Classifiers used are one-vs-one to distinguish btwn
 two tissues, and one-vs-all for the rest.
 """
 
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
         print "Plotting results"
         y_scores = clf.decision_function(X_test)
-        plot_roc(y_test, y_scores, "ROC Tissue", 
+        plot_roc(y_test, y_scores, "ROC Tissue",
             out="figures/roc-curve-tis-limb-v-brain.png")
         # plot_precision_recall(y_true, y_scores)
         # plot_2d_results(X_test, y_test, clf.predict(X_test))
