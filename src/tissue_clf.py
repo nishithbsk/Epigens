@@ -93,22 +93,22 @@ if __name__ == "__main__":
     start = time.clock()
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
-    parser.add_argument("--heart_mnemonic", help="path to heart mnemonic")
-    parser.add_argument("--liver_mnemonic", help="path to liver mnemonic")
-    parser.add_argument("--brain_mnemonic", help="path to brain mnemonic")
+    parser.add_argument("--heart", help="path to heart mnemonic")
+    parser.add_argument("--brain", help="path to brain mnemonic")
+    parser.add_argument("--limb", help="path to limb mnemonic")
     args = parser.parse_args()
 
     pos_dataset = args.pos_exs
-    heart_data = None
-    liver_data = None
-    brain_data = None
+    heart_feats = None
+    liver_feats = None
+    brain_feats = None
 
-    if hasattr(args, "heart_mnemonic"):
-        heart_data = args.heart_mnemonic
-    if hasattr(args, "liver_mnemonic"):
-        liver_data = args.liver_mnemonic
-    if hasattr(args, "brain_mnemonic"):
-        brain_data = args.brain_mnemonic
+    if hasattr(args, "heart"):
+        heart_feats = np.load(args.heart_mnemonic)
+    if hasattr(args, "limb"):
+        limb_feats = np.load(args.limb_mnemonic)
+    if hasattr(args, "brain"):
+        brain_feats = np.load(args.brain_mnemonic)
 
     examples, labels, descriptions = parse_fa_tissue(
         pos_dataset, one_v_one, filter_fn
@@ -125,12 +125,12 @@ if __name__ == "__main__":
         X = normalize(X, axis=1, norm='l1')
 
     # Add extra features
-    if heart_data:
-        rows = [extract_extra_features_heart(extract_seq(d), heart_data)
-            for d in descriptions])
-        heart_X = np.concatenate(rows)
-
-
+    if "heart" in tissues and heart_feats:
+        X = np.hstack((X, heart_feats))
+    if "limb" in tissues and limb_feats:
+        X = np.hstack((X, limb_feats))
+    if "brain" in tissues and brain_feats:
+        X = np.hstack((X, brain_feats))
 
     # Add e-box and taat core cols
     # ebox_col = get_ebox_col(examples)
@@ -161,8 +161,7 @@ if __name__ == "__main__":
 
         print "Plotting results"
         y_scores = clf.decision_function(X_test)
-        plot_roc(y_test, y_scores, "ROC Tissue",
-            out="figures/roc-curve-tis-limb-v-brain.png")
+        plot_roc(y_test, y_scores, "ROC Tissue", out="figures/roc-curve-tis-limb-v-brain.png")
         # plot_precision_recall(y_true, y_scores)
         # plot_2d_results(X_test, y_test, clf.predict(X_test))
         print "Done plotting"

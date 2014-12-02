@@ -71,11 +71,11 @@ def lfd(description):
     return lts(description.split("|")[3].strip())
 
 
-def extract_bed(description):
+def description_to_bed(description):
     return description.split()[1].strip() \
         .replace("range=", "") \
         .replace(":", "\t") \
-        .replace("-", "\t")
+        .replace("-", "\t") + "\n"
 
 
 def parse_fa(path, label):
@@ -91,7 +91,7 @@ def parse_fa(path, label):
     for entry in human_fasta_seq:
         seqs.append(str(entry.seq).replace("n", "").lower())
         labels.append(float(label))
-        beds.append(extract_bed(entry.description))
+        beds.append(description_to_bed(entry.description))
 
     seqs = np.array(seqs)
     labels = np.array(labels)
@@ -227,8 +227,8 @@ def get_ebox_col(examples):
 # == Part 2: Additional features ==
 
 
-def seq_to_bed(seq):
-    description = seq[0].split("|")[1]
+def seq_to_bed(description):
+    description = description.split("|")[1]
     chromName = description.split(":")[0]
 
     chromRange = description.split(":")[1]
@@ -236,11 +236,11 @@ def seq_to_bed(seq):
     chromEnd = chromRange.split("-")[1]
 
     bedLine = [chromName, chromStart, chromEnd]
-    bedLine = '\t'.join(bedLine)
+    bedLine = '\t'.join(bedLine) + "\n"
     return bedLine
 
 
-def extract_feat_enhancers(seq, TF_name, converted=False):
+def extract_feat_1(seq, TF_name, converted=False):
     """ Given a bedtools line representing a sequence,
     returns row of general enhancer features """
     global TF_binding_sites
@@ -272,68 +272,7 @@ def extract_feat_enhancers(seq, TF_name, converted=False):
     return np.array(extra_features)
 
 
-def extract_feat_heart(seq, bedfile):
-    """ Given single sequence labeled as heart
-    enhancing, returns row of heart features """
-    global heart_seqFile
-
-    extra_features = []
-    bedline = seq_to_bed(seq)
-    if not heart_seqFile:
-        heart_seqFile = pybedtools.BedTool(bedline)
-    seqFile = heart_seqFile
-    mnemonicsFile = pybedtools.BedTool(bedfile)
-    intersections = mnemonicsFile.intersect(seqFile)
-
-    statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
-    for intersection in intersections:
-        state = intersection.name
-
-        if('Enh' in state):
-            statesDictionary['Enh'] = 1
-        elif('EnhG' in state):
-            statesDictionary['EnhG'] = 1
-        elif('Het' in state):
-            statesDictionary['Het'] = 1
-        elif('TxWk' in state):
-            statesDictionary['TxWk'] = 1
-
-    extra_features = statesDictionary.values()
-    return np.array(extra_features)
-
-
-def extract_feat_limb(seq, bedfile):
-    """ Given single sequence labeled as limb
-    enhancing, returns a list of additional
-    features """
-    global limb_seqFile
-
-    extra_features = []
-    bedline = seq_to_bed(seq)
-    if not limb_seqFile:
-        limb_seqFile = pybedtools.BedTool(bedline)
-    seqFile = limb_seqFile
-    mnemonicsFile = pybedtools.BedTool(bedfile)
-    intersections = mnemonicsFile.intersect(seqFile)
-
-    statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
-    for intersection in intersections:
-        state = intersection.name
-
-        if('Enh' in state):
-            statesDictionary['Enh'] = 1
-        elif('EnhG' in state):
-            statesDictionary['EnhG'] = 1
-        elif('Het' in state):
-            statesDictionary['Het'] = 1
-        elif('TxWk' in state):
-            statesDictionary['TxWk'] = 1
-
-    extra_features = statesDictionary.values()
-    return np.array(extra_features)
-
-
-def extract_feat_brain(seq, bedfile):
+def extract_feat_23(seq, bedfile):
     """ Given single sequence that's labeled with
     a part of the brain, returns a list of additional
     epigenetic features """

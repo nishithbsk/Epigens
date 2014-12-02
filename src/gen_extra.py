@@ -14,20 +14,20 @@ from features import *
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 5:
         print """
-        Arguments:
+        Arguments: <fasta> <bedfile> <outfile> <op>
             First is fasta file,
             second is path to bedfile you want to intersect with
             third is path to write to
-            fourth is the operation. Can be (tf|heart|limb|
+            fourth is the operation. Can be (tf|<something else>)
         """
         sys.exit(1)
 
-    print sys.argv
     inpath = sys.argv[1]
-    tfpath = sys.argv[2]
+    bedpath = sys.argv[2]
     outpath = sys.argv[3]
+    op = sys.argv[4]
 
     seqfile = [x for x in SeqIO.parse(inpath, "fasta")]
     labels = []
@@ -36,8 +36,14 @@ if __name__ == "__main__":
 
     start = time.time()
     for x in seqfile:
-        bedtool = extract_bed(x.description)
-        label = extract_feat_enhancers(bedtool, tfpath, converted=True)
+        if op == "tf":
+            # raw fasta file from USCS genome table, so have
+            # to convert at this step first
+            bedtool = description_to_bed(x.description)
+            label = extract_feat_1(bedtool, bedpath, converted=True)
+        else:
+            # annotated fasta file, so can use seq_to_bed
+            label = extract_feat_23(x.description, bedpath)
         labels.append(label)
         count += 1
         if count % 5 == 0:
