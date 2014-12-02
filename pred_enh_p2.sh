@@ -2,8 +2,8 @@
 
 POS="data/fasta/vt_hm_pos.fa"
 NEG="data/fasta/vt_hm_neg.fa"
-POS_TF="data/out/pos_tf.txt"
-NEG_TF="data/out/neg_tf.txt"
+POS_TF="data/out/pos_tf.npy"
+NEG_TF="data/out/neg_tf.npy"
 
 echo "Predicting general enhancer activity"
 echo "pos: $POS, neg: $NEG, tf: $TF"

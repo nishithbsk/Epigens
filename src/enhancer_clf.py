@@ -52,8 +52,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("pos_exs", help="path to pos examples")
     parser.add_argument("neg_exs", help="path to neg examples")
-    parser.add_argument("--pos_tf", help="path to preprocessed intersection labels")
-    parser.add_argument("--neg_tf", help="path to preprocessed intersection labels")
+    parser.add_argument("--pos_tf", help="path to preprocessed intersection labels npy file")
+    parser.add_argument("--neg_tf", help="path to preprocessed intersection labels npy file")
     args = parser.parse_args()
 
     pos_dataset = args.pos_exs
