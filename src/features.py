@@ -241,7 +241,7 @@ def seq_to_bed(seq):
 
 
 def extract_feat_enhancers(seq, TF_name, converted=False):
-    """ Given a bedtools line representinga sequence,
+    """ Given a bedtools line representing a sequence,
     returns row of general enhancer features """
     global TF_binding_sites
 
