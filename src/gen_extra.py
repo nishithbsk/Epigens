@@ -51,9 +51,10 @@ if __name__ == "__main__":
         labels.append(label)
         count += 1
         if count % 5 == 0:
+            break
             diff = time.time() - start
             print "%d out of %d processed, took %.2fs" % (count, total, diff)
             start = time.time()
 
     result = np.array(labels)
-    result.tofile(outpath)
+    np.save(outpath, result)
