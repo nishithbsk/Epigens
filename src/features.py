@@ -8,7 +8,7 @@ import itertools
 import pybedtools
 from Bio import SeqIO
 
-GLOBAL_K = 6
+GLOBAL_K = 5
 
 brain_seqFile = None
 heart_seqFile = None
@@ -86,17 +86,14 @@ def parse_fa(path, label):
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
     seqs = []
     labels = []
-    beds = []
 
     for entry in human_fasta_seq:
         seqs.append(str(entry.seq).replace("n", "").lower())
         labels.append(float(label))
-        beds.append(description_to_bed(entry.description))
 
     seqs = np.array(seqs)
     labels = np.array(labels)
-    beds = np.array(beds)
-    return (seqs, labels, beds)
+    return (seqs, labels)
 
 
 def parse_fa_tissue(path, label_fn, filter_fn):
@@ -114,18 +111,15 @@ def parse_fa_tissue(path, label_fn, filter_fn):
 
     seqs = []
     labels = []
-    descriptions = []
 
     for entry in human_fasta_seq:
         if filter_fn(entry.description):
             seqs.append(str(entry.seq).replace("n", "").lower())
             labels.append(label_fn(entry.description))
-            descriptions.append(entry.description)
 
     seqs = np.array(seqs)
     labels = np.array(labels)
-    descriptions = np.array(descriptions)
-    return (seqs, labels, descriptions)
+    return (seqs, labels)
 
 
 def parse_fa_fine_grain(path, label_fn, filter_fn):
@@ -142,18 +136,15 @@ def parse_fa_fine_grain(path, label_fn, filter_fn):
     human_fasta_seq = SeqIO.parse(fasta_file, 'fasta')
     seqs = []
     labels = []
-    descriptions = []
 
     for entry in human_fasta_seq:
         if filter_fn(entry.description):
             seqs.append(str(entry.seq).replace("n", "").lower())
             labels.append(label_fn(entry.description))
-            descriptions.append(entry.description)
 
     seqs = np.array(seqs)
     labels = np.array(labels)
-    descriptions = np.array(descriptions)
-    return (seqs, labels, descriptions)
+    return (seqs, labels)
 
 
 def get_kmer_counts(seq, ref):
@@ -240,64 +231,27 @@ def seq_to_bed(description):
     return bedLine
 
 
-def extract_feat_1(seq, TF_name, converted=False):
+def extract_feat_tf(annotations, converted=False):
     """ Given a bedtools line representing a sequence,
     returns row of general enhancer features """
-    global TF_binding_sites
-
-    extra_features = []
-
-    if not converted:
-        bedline = seq_to_bed(seq)
-    else:
-        bedline = seq
-
-    seqFile = pybedtools.BedTool(bedline, from_string=True)
-    TF_binding_sites = pybedtools.BedTool(TF_name)
-
-    intersections = TF_binding_sites.intersect(seqFile)
-
-    TFDictionary = {'P300': 0, 'TCF': 0, 'TBF': 0}
-    for intersection in intersections:
-        TF = intersection.name
-
-        if('P300' in TF):
-            TFDictionary['P300'] = 1
-        elif('TCF' in TF):
-            TFDictionary['TCF'] = 1
-        elif('TBF' in TF):
-            TFDictionary['TBF'] = 1
-
-    extra_features = TFDictionary.values()
-    return np.array(extra_features)
+    joint = "".join(annotations)
+    features = [
+        ('P300' in joint),
+        ('TCF' in joint),
+        ('TBF' in joint)
+    ]
+    return np.array(features)
 
 
-def extract_feat_23(seq, bedfile):
+def extract_feat_nontf(annotations, bedfile):
     """ Given single sequence that's labeled with
     a part of the brain, returns a list of additional
     epigenetic features """
-    global brain_seqFile
-
-    extra_features = []
-    bedline = seq_to_bed(seq)
-    if not brain_seqFile:
-        brain_seqFile = pybedtools.BedTool(bedline)
-    seqFile = brain_seqFile
-    mnemonicsFile = pybedtools.BedTool(bedfile)
-    intersections = mnemonicsFile.intersect(seqFile)
-
-    statesDictionary = {'Enh': 0, 'EnhG': 0, 'Het': 0, 'TxWk': 0}
-    for intersection in intersections:
-        state = intersection.name
-
-        if('Enh' in state):
-            statesDictionary['Enh'] = 1
-        elif('EnhG' in state):
-            statesDictionary['EnhG'] = 1
-        elif('Het' in state):
-            statesDictionary['Het'] = 1
-        elif('TxWk' in state):
-            statesDictionary['TxWk'] = 1
-
-    extra_features = statesDictionary.values()
-    return np.array(extra_features)
+    joint = "".join(annotations)
+    features = [
+        ('Enh' in joint),
+        ('EnhG' in joint),
+        ('Het' in joint),
+        ('TxWk' in joint)
+    ]
+    return np.array(features)

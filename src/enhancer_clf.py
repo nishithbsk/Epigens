@@ -36,15 +36,15 @@ from sklearn.feature_selection import chi2
 
 from matplotlib import pyplot as plt
 
-FEATURE_SELECTION = True
+FEATURE_SELECTION = False
 
-FOLD_CV = False
+FOLD_CV = True
 
 PLOT_RESULTS = not FOLD_CV
 
-NORMALIZE = True
+EXTRA = False
 
-GLOBAL_K = 6
+NORMALIZE = True
 
 import time
 if __name__ == "__main__":
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     pos_dataset = args.pos_exs
     neg_dataset = args.neg_exs
     pos_tf = args.pos_tf if hasattr(args, "pos_tf") else None
-    neg_Tf = args.neg_tf if hasattr(args, "neg_tf") else None
+    neg_tf = args.neg_tf if hasattr(args, "neg_tf") else None
 
     pos_seq, pos_labels = parse_fa(pos_dataset, 1)
     neg_seq, neg_labels = parse_fa(neg_dataset, -1)
@@ -67,9 +67,9 @@ if __name__ == "__main__":
     neg_extra = np.load(neg_tf) if neg_tf else None
 
     # Vertically stack everything
-    examples = np.vstack((pos_seq, neg_seq))
+    examples = np.concatenate((pos_seq, neg_seq))
     labels = np.concatenate((pos_labels, neg_labels))
-    extra_feats = np.vstack((pos_extra, neg_extra)) if pos_extra and neg_extra else None
+    extra_feats = np.concatenate((pos_extra, neg_extra)) if pos_extra is not None and neg_extra is not None else None
 
     # feature vector index :=> kmer string
     kmers_index = get_kmers_index_lookup()
@@ -84,15 +84,16 @@ if __name__ == "__main__":
     # == Add extra features ==
 
     # Add Kristin's features
-    if extra_feats:
-        X = np.hstack((X, extra_feats))
+    if EXTRA:
+        if extra_feats is not None:
+            X = np.hstack((X, extra_feats))
 
     # Add e-box and taat core cols
     # ebox_col = get_ebox_col(examples)
     # taat_col = get_taat_col(examples)
     # X = np.hstack((X, taat_col))
 
-    clf = svm.SVC(kernel='rbf')
+    clf = svm.SVC(kernel='linear')
 
     if FEATURE_SELECTION:
         print "Feature selecting top 10 features"
@@ -116,9 +117,13 @@ if __name__ == "__main__":
 
         print "Plotting results"
         y_scores = clf.decision_function(X_test)
-        plot_roc(y_test, y_scores, "ROC Enhancer",
-            out="figures/roc-curve-enh-fsel.png")
-        # plot_precision_recall(y_true, y_scores)
+        if EXTRA:
+            plot_roc(y_test, y_scores, "ROC Enhancer",
+                out="figures/roc-curve-enh-fsel-extra.png")
+        else:
+             plot_roc(y_test, y_scores, "ROC Enhancer",
+                out="figures/roc-curve-combo-vs-rand.png")
+       # plot_precision_recall(y_true, y_scores)
         # plot_2d_results(X_test, y_test, clf.predict(X_test))
         print "Done plotting"
 

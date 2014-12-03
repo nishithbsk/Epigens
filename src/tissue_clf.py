@@ -48,12 +48,21 @@ GLOBAL_K = 6
 tissues = ["limb", "brain"]
 
 
-def filter_fn(d):
+def filter_one_v_all(d):
+    """ Filter for one-v-all: inclusive """
     for raw in d.split("|")[4:]:
-        for part in tissues:
-            if part in raw:
+        for tis in tissues:
+            if tis in raw:
                 return True
     return False
+
+
+def filter_one_v_one(d):
+    """ Filter for one-v-one: ex where only one
+    is found, (not both and not neither) """
+    fn = lambda tissue: any(tissue in x for raw in d.split("|")[4:]),
+    result = map(fn, tissues)
+    return len([x for x in result if x]) == 1
 
 
 def one_v_all(d):
