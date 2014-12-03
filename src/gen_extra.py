@@ -43,7 +43,11 @@ if __name__ == "__main__":
             label = extract_feat_1(bedtool, bedpath, converted=True)
         else:
             # annotated fasta file, so can use seq_to_bed
-            label = extract_feat_23(x.description, bedpath)
+            if op in x.description:
+                print "found %s in %s" % (op, x.description)
+                label = extract_feat_23(x.description, bedpath)
+            else:
+                label = np.zeros(3)
         labels.append(label)
         count += 1
         if count % 5 == 0:
